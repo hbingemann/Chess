@@ -146,18 +146,33 @@ class Knight(Piece):
 
 
 class Bishop(Piece):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, color, start):
+        self.image = "img/" + color + "_bishop.png"
+        super().__init__(self.image, color, start, self.get_moves)
+
+    def get_moves(self):
+        moves = []
+        return moves
 
 
 class Queen(Piece):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, color, start):
+        self.image = "img/" + color + "_queen.png"
+        super().__init__(self.image, color, start, self.get_moves)
+
+    def get_moves(self):
+        moves = []
+        return moves
 
 
 class King(Piece):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, color, start):
+        self.image = "img/" + color + "_king.png"
+        super().__init__(self.image, color, start, self.get_moves)
+
+    def get_moves(self):
+        moves = []
+        return moves
 
 
 def draw_board(surface):
@@ -182,6 +197,12 @@ def default_setup():
     # rooks
     whites.append(Rook("white", (0, 7)))
     whites.append(Rook("white", (7, 7)))
+    # bishops
+    whites.append(Bishop("white", (2, 7)))
+    whites.append(Bishop("white", (5, 7)))
+    # king and queen
+    whites.append(Queen("white", (3, 7)))
+    whites.append(King("white", (4, 7)))
 
     return whites, blacks
 
