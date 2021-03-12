@@ -21,7 +21,6 @@ FPS = 60
 # - look for stalemate / draw
 
 
-
 # Noch so ein paar Ideen...
 #
 # Game Klasse
@@ -78,10 +77,10 @@ FPS = 60
 # oder so aehnlich?
 
 
-
 class Board:
     def __init__(self):
-        pass
+        self.pieces = []
+        # self.pieces = [(knight, (pos.x, pos.y)), (pawn, (pos.x, pos.y))]
 
     # Board:
     # - keeps track of piece locations
@@ -89,20 +88,32 @@ class Board:
 
 
 class Piece:
-    def __init__(self, image, color, start):
+    def __init__(self, image, color, start, moves):
         self.image = pygame.image.load(image)
+        self.moves = moves
+        self.x, self.y = start
+
+    def get_rect(self):
+        return self.x * WIDTH // 8, self.y * WIDTH // 8, self.image.get_width(), self.image.get_height()
 
     # Piece
     # - knows where it can move towards based off of its own moving possibilities (e.g: bishop on diagonals)
     # - kills itself if it has been taken
     # - keeps track of mouse clicks then asks board if ok
 
+    # vielleicht x und y als grid coordinaten speichern (0, 1, 2, 3 ...
+    # und wenn der pygame es "malen" will dann gibt mann den die grid
+    # coordinaten * 100 (oder WIDTH // 8) zurueck
+    # - daher kommt die get_rect function
+
 
 class Pawn(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_pawn.png"
-        self.start = start
-        super().__init__(self.image, color, self.start)
+        super().__init__(self.image, color, start, self.get_moves)
+
+    def get_moves(self):
+        return [(0, 1), (0, 2), (1, 1, "takes")]
 
     # Individual Pieces:
     # - tells piece class its moving constraints
@@ -111,13 +122,27 @@ class Pawn(Piece):
 
 
 class Rook(Piece):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, color, start):
+        self.image = "img/" + color + "_rook.png"
+        super().__init__(self.image, color, start, self.get_moves)
+
+    def get_moves(self):
+        moves = []
+        for x in range(-7, 7):
+            moves.append((x, 0))
+        for y in range(-7, 7):
+            moves.append((0, y))
+        return moves
 
 
 class Knight(Piece):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, color, start):
+        self.image = "img/" + color + "_knight.png"
+        super().__init__(self.image, color, start, self.get_moves)
+
+    def get_moves(self):
+        moves = []
+        return moves
 
 
 class Bishop(Piece):
@@ -145,6 +170,22 @@ def draw_board(surface):
             pygame.draw.rect(surface, col, (x * WIDTH // 8, y * WIDTH // 8, WIDTH, HEIGHT))
 
 
+def default_setup():
+    whites = []
+    blacks = []
+    # pawns
+    for i in range(8):
+        whites.append(Pawn("white", (i, 6)))
+    # knights
+    whites.append(Knight("white", (1, 7)))
+    whites.append(Knight("white", (6, 7)))
+    # rooks
+    whites.append(Rook("white", (0, 7)))
+    whites.append(Rook("white", (7, 7)))
+
+    return whites, blacks
+
+
 if __name__ == '__main__':  # running the game
     # setting some values that will be useful
     screen = pygame.display.set_mode(SIZE)
@@ -152,11 +193,14 @@ if __name__ == '__main__':  # running the game
 
     draw_board(screen)
 
+    board = Board()
+    white_pieces, black_pieces = default_setup()
+
     # game loop
     run = True
     clock = pygame.time.Clock()
     while run:
-        # regulate game speed and calculate some elapsed time for inputs
+        # regulate game speed
         clock.tick(FPS)
 
         # check events
@@ -166,6 +210,9 @@ if __name__ == '__main__':  # running the game
             if event.type == pygame.QUIT:
                 run = False
 
+        pawn = Pawn("white", (1, 0))
+        screen.blits((piece.image, piece.get_rect()) for piece in white_pieces)
+        screen.blits((piece.image, piece.get_rect()) for piece in black_pieces)
         pygame.display.update()
 
     pygame.quit()
