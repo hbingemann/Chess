@@ -7,6 +7,9 @@ import pygame
 SIZE = WIDTH, HEIGHT = 800, 800
 FPS = 60
 
+PIECE_CLICKED = pygame.USEREVENT + 1  # warum plus 1? weil wir wollen das jedes USER EVENT anders ist
+PIECE_RELEASED = pygame.USEREVENT + 2  # und so haben es die youtubers gemacht
+
 
 # - drag and drop of pieces if move is legal
 # - every piece has it's own individual moves
@@ -82,6 +85,17 @@ class Board:
         self.pieces = []
         # self.pieces = [(knight, (pos.x, pos.y)), (pawn, (pos.x, pos.y))]
 
+    def mouse_down(self, pos, button):
+        if button != 1:  # not left click
+            return None
+        for piece in self.pieces:
+            if piece.get_rect().collidepoint(pos):
+                return piece
+        return None
+
+    def mouse_up(self, pos, button):
+        pass
+
     # Board:
     # - keeps track of piece locations
     # - tells piece if move is legal / possible (not blocked by other piece)
@@ -91,20 +105,20 @@ class Piece:
     def __init__(self, image, color, start, moves):
         self.image = pygame.image.load(image)
         self.moves = moves
-        self.x, self.y = start
+        self.x, self.y = (i * 100 for i in start)
 
     def get_rect(self):
-        return self.x * WIDTH // 8, self.y * WIDTH // 8, self.image.get_width(), self.image.get_height()
+        return pygame.Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
+
+    def drop(self, pos):
+        # go to nearest tile
+        pass
+
 
     # Piece
     # - knows where it can move towards based off of its own moving possibilities (e.g: bishop on diagonals)
     # - kills itself if it has been taken
     # - keeps track of mouse clicks then asks board if ok
-
-    # vielleicht x und y als grid coordinaten speichern (0, 1, 2, 3 ...
-    # und wenn der pygame es "malen" will dann gibt mann den die grid
-    # coordinaten * 100 (oder WIDTH // 8) zurueck
-    # - daher kommt die get_rect function
 
 
 class Pawn(Piece):
@@ -216,6 +230,9 @@ if __name__ == '__main__':  # running the game
 
     board = Board()
     white_pieces, black_pieces = default_setup()
+    board.pieces = white_pieces + black_pieces
+
+    piece_following_mouse = None
 
     # game loop
     run = True
@@ -231,9 +248,26 @@ if __name__ == '__main__':  # running the game
             if event.type == pygame.QUIT:
                 run = False
 
-        pawn = Pawn("white", (1, 0))
-        screen.blits((piece.image, piece.get_rect()) for piece in white_pieces)
-        screen.blits((piece.image, piece.get_rect()) for piece in black_pieces)
+            # mouse down
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                piece = board.mouse_down(event.pos, event.button)
+                if piece is not None:
+                    piece_following_mouse = piece
+
+            # mouse up
+            elif event.type == pygame.MOUSEBUTTONUP:
+                piece_following_mouse.drop(event.pos)
+                piece_following_mouse = None
+                # ruf ne function die die figur zurecht legt
+
+        # if dragging a piece
+        if piece_following_mouse is not None:
+            piece_following_mouse.x = pygame.mouse.get_pos()[0] - piece_following_mouse.image.get_width() // 2
+            piece_following_mouse.y = pygame.mouse.get_pos()[1] - piece_following_mouse.image.get_height() // 2
+
+        # update screen
+        draw_board(screen)
+        screen.blits((piece.image, piece.get_rect()) for piece in board.pieces)
         pygame.display.update()
 
     pygame.quit()
