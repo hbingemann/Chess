@@ -8,9 +8,6 @@ SIZE = WIDTH, HEIGHT = 800, 800
 FPS = 60
 SQUARE_SIZE = WIDTH // 8
 
-PIECE_CLICKED = pygame.USEREVENT + 1  # warum plus 1? weil wir wollen das jedes USER EVENT anders ist
-PIECE_RELEASED = pygame.USEREVENT + 2  # und so haben es die youtubers gemacht
-
 
 # - drag and drop of pieces if move is legal
 # - every piece has it's own individual moves
@@ -94,6 +91,9 @@ class Board:
                 return piece
         return None
 
+    def available_moves(self, pos, moves):  # hier moves ist wo
+        pass
+
     # Board:
     # - keeps track of piece locations
     # - tells piece if move is legal / possible (not blocked by other piece)
@@ -101,28 +101,37 @@ class Board:
 
 class Piece:
     def __init__(self, image, color, start, moves):
+        self.available_moves = "whatever board returns"
         self.image = pygame.image.load(image)
         self.moves = moves
         self.x, self.y = (i * 100 for i in start)
-        self.picked_up_pos = start
+        self.picked_up_pos = self.x, self.y
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
 
-    def pick_up(self):
+    def pick_up(self, board):
+        # create list of all positions it can move to
+        # give board that list
+        # board returns all places it can move to
         # keep track of current (later original) location / show possible moves
+        grid_pos = (self.x + self.image.get_width() // 2) // SQUARE_SIZE, (self.y + self.image.get_height() // 2) // SQUARE_SIZE
+        spots = None
+        self.available_moves = board.available_moves(grid_pos, spots)
         self.picked_up_pos = self.x, self.y
         pass
 
     def drop(self, pos):
         original_grid_pos = self.picked_up_pos[0] // SQUARE_SIZE, self.picked_up_pos[1] // SQUARE_SIZE
-        current_grid_pos = self.x // SQUARE_SIZE, self.y // SQUARE_SIZE
-        change = (abs(original_grid_pos[0] - current_grid_pos[0]), abs(original_grid_pos[1] - current_grid_pos[1]))
+        current_grid_pos = (self.x + self.image.get_width() // 2) // SQUARE_SIZE , (self.y + self.image.get_height() // 2) // SQUARE_SIZE
+        change = (original_grid_pos[0] - current_grid_pos[0], original_grid_pos[1] - current_grid_pos[1])
         if change in self.moves:
             self.x = pos[0] // SQUARE_SIZE * SQUARE_SIZE
             self.y = pos[1] // SQUARE_SIZE * SQUARE_SIZE
         else:
             self.x, self.y = self.picked_up_pos
+        # if pos in available moves
+        # go to pos else return to picked up pos
 
 
     # Piece
@@ -137,7 +146,7 @@ class Pawn(Piece):
         super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
-        return [(0, 1), (0, 2), (1, 1)]
+        return [(0, 1), (0, 2), (1, 1), (-1, 1)]
 
     # Individual Pieces:
     # - tells piece class its moving constraints
@@ -152,7 +161,7 @@ class Rook(Piece):
 
     def get_moves(self):
         moves = []
-        for x in range(7):
+        for x in range(-6, 7):
             moves.append((x, 0))
             moves.append((0, x))
         return moves
@@ -164,7 +173,7 @@ class Knight(Piece):
         super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
-        moves = [(2, 1), (1, 2)]
+        moves = [(2, 1), (-2, 1), (2, -1), (-2, -1), (1, 2), (-1, 2), (1, -2), (-1, -2)]
         return moves
 
 
@@ -175,8 +184,9 @@ class Bishop(Piece):
 
     def get_moves(self):
         moves = []
-        for i in range(8):
+        for i in range(-6, 7):
             moves.append((i, i))
+            moves.append((-i, i))
         return moves
 
 
@@ -187,9 +197,10 @@ class Queen(Piece):
 
     def get_moves(self):
         moves = []
-        for i in range(8):
+        for i in range(-6, 7):
             moves.append((i, i))
-        for x in range(7):
+            moves.append((-i, i))
+        for x in range(-6, 7):
             moves.append((x, 0))
             moves.append((0, x))
         return moves
@@ -201,7 +212,7 @@ class King(Piece):
         super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
-        moves = [(0, 1), (1, 0), (1, 1)]
+        moves = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]
         return moves
 
 
@@ -269,7 +280,7 @@ if __name__ == '__main__':  # running the game
                 piece = board.mouse_down(event.pos, event.button)
                 if piece is not None:
                     piece_following_mouse = piece
-                    piece.pick_up()
+                    piece.pick_up(board)
 
             # mouse up
             elif event.type == pygame.MOUSEBUTTONUP:
