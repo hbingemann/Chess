@@ -6,6 +6,7 @@ import pygame
 
 SIZE = WIDTH, HEIGHT = 800, 800
 FPS = 60
+SQUARE_SIZE = WIDTH // 8
 
 PIECE_CLICKED = pygame.USEREVENT + 1  # warum plus 1? weil wir wollen das jedes USER EVENT anders ist
 PIECE_RELEASED = pygame.USEREVENT + 2  # und so haben es die youtubers gemacht
@@ -93,9 +94,6 @@ class Board:
                 return piece
         return None
 
-    def mouse_up(self, pos, button):
-        pass
-
     # Board:
     # - keeps track of piece locations
     # - tells piece if move is legal / possible (not blocked by other piece)
@@ -106,13 +104,25 @@ class Piece:
         self.image = pygame.image.load(image)
         self.moves = moves
         self.x, self.y = (i * 100 for i in start)
+        self.picked_up_pos = start
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
 
-    def drop(self, pos):
-        # go to nearest tile
+    def pick_up(self):
+        # keep track of current (later original) location / show possible moves
+        self.picked_up_pos = self.x, self.y
         pass
+
+    def drop(self, pos):
+        original_grid_pos = self.picked_up_pos[0] // SQUARE_SIZE, self.picked_up_pos[1] // SQUARE_SIZE
+        current_grid_pos = self.x // SQUARE_SIZE, self.y // SQUARE_SIZE
+        change = (abs(original_grid_pos[0] - current_grid_pos[0]), abs(original_grid_pos[1] - current_grid_pos[1]))
+        if change in self.moves:
+            self.x = pos[0] // SQUARE_SIZE * SQUARE_SIZE
+            self.y = pos[1] // SQUARE_SIZE * SQUARE_SIZE
+        else:
+            self.x, self.y = self.picked_up_pos
 
 
     # Piece
@@ -124,10 +134,10 @@ class Piece:
 class Pawn(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_pawn.png"
-        super().__init__(self.image, color, start, self.get_moves)
+        super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
-        return [(0, 1), (0, 2), (1, 1, "takes")]
+        return [(0, 1), (0, 2), (1, 1)]
 
     # Individual Pieces:
     # - tells piece class its moving constraints
@@ -138,54 +148,60 @@ class Pawn(Piece):
 class Rook(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_rook.png"
-        super().__init__(self.image, color, start, self.get_moves)
+        super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
         moves = []
-        for x in range(-7, 7):
+        for x in range(7):
             moves.append((x, 0))
-        for y in range(-7, 7):
-            moves.append((0, y))
+            moves.append((0, x))
         return moves
 
 
 class Knight(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_knight.png"
-        super().__init__(self.image, color, start, self.get_moves)
+        super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
-        moves = []
+        moves = [(2, 1), (1, 2)]
         return moves
 
 
 class Bishop(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_bishop.png"
-        super().__init__(self.image, color, start, self.get_moves)
+        super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
         moves = []
+        for i in range(8):
+            moves.append((i, i))
         return moves
 
 
 class Queen(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_queen.png"
-        super().__init__(self.image, color, start, self.get_moves)
+        super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
         moves = []
+        for i in range(8):
+            moves.append((i, i))
+        for x in range(7):
+            moves.append((x, 0))
+            moves.append((0, x))
         return moves
 
 
 class King(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_king.png"
-        super().__init__(self.image, color, start, self.get_moves)
+        super().__init__(self.image, color, start, self.get_moves())
 
     def get_moves(self):
-        moves = []
+        moves = [(0, 1), (1, 0), (1, 1)]
         return moves
 
 
@@ -196,7 +212,7 @@ def draw_board(surface):
                 col = "#61a055"  # green
             else:
                 col = "#ebf2d2"  # white
-            pygame.draw.rect(surface, col, (x * WIDTH // 8, y * WIDTH // 8, WIDTH, HEIGHT))
+            pygame.draw.rect(surface, col, (x * SQUARE_SIZE, y * SQUARE_SIZE, WIDTH, HEIGHT))
 
 
 def default_setup():
@@ -253,11 +269,13 @@ if __name__ == '__main__':  # running the game
                 piece = board.mouse_down(event.pos, event.button)
                 if piece is not None:
                     piece_following_mouse = piece
+                    piece.pick_up()
 
             # mouse up
             elif event.type == pygame.MOUSEBUTTONUP:
-                piece_following_mouse.drop(event.pos)
-                piece_following_mouse = None
+                if piece_following_mouse is not None:
+                    piece_following_mouse.drop(event.pos)
+                    piece_following_mouse = None
                 # ruf ne function die die figur zurecht legt
 
         # if dragging a piece
