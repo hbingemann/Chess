@@ -81,7 +81,7 @@ SQUARE_SIZE = WIDTH // 8
 class Board:
     def __init__(self):
         self.pieces = []
-        # self.pieces = [(knight, (pos.x, pos.y)), (pawn, (pos.x, pos.y))]
+        # self.pieces = [class, class, class ...]
 
     def mouse_down(self, pos, button):
         if button != 1:  # not left click
@@ -91,8 +91,18 @@ class Board:
                 return piece
         return None
 
-    def available_moves(self, pos, moves):  # hier moves ist wo
-        pass
+    def available_squares(self, pos, squares):
+        new_squares = []
+        for square in squares:
+            for piece in self.pieces:
+                piece_pos = piece.x, piece.y
+                if square == piece_pos:
+                    print("piece at " + str(square))
+                    break
+                else:
+                    new_squares.append(square)
+        return new_squares
+
 
     # Board:
     # - keeps track of piece locations
@@ -100,38 +110,72 @@ class Board:
 
 
 class Piece:
-    def __init__(self, image, color, start, moves):
-        self.available_moves = "whatever board returns"
+    def __init__(self, image, color, start):
+        self.available_squares = []
         self.image = pygame.image.load(image)
-        self.moves = moves
-        self.x, self.y = (i * 100 for i in start)
+        self.moves = self.get_moves()
+        self._pixel_x, self._pixel_y = (i * 100 for i in start)
+        self._x, self._y = start
         self.picked_up_pos = self.x, self.y
 
+    @property
+    def x(self):
+        return self._x
+
+    @x.setter
+    def x(self, val):
+        self._x = val
+        self._pixel_x = val * SQUARE_SIZE
+
+    @property
+    def y(self):
+        return self._y
+
+    @y.setter
+    def y(self, val):
+        self._y = val
+        self._pixel_y = val * SQUARE_SIZE
+
+    @property
+    def pixel_x(self):
+        return self._pixel_x
+
+    @pixel_x.setter
+    def pixel_x(self, val):
+        self._pixel_x = val
+        self._x = val // SQUARE_SIZE
+
+    @property
+    def pixel_y(self):
+        return self._pixel_y
+
+    @pixel_y.setter
+    def pixel_y(self, val):
+        self._pixel_y = val
+        self._y = val // SQUARE_SIZE
+
+    def get_moves(self):
+        raise NotImplementedError
+
     def get_rect(self):
-        return pygame.Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
+        return pygame.Rect(self.pixel_x, self.pixel_y, self.image.get_width(), self.image.get_height())
 
     def pick_up(self, board):
         # create list of all positions it can move to
         # give board that list
         # board returns all places it can move to
         # keep track of current (later original) location / show possible moves
-        grid_pos = (self.x + self.image.get_width() // 2) // SQUARE_SIZE, (self.y + self.image.get_height() // 2) // SQUARE_SIZE
-        spots = None
-        self.available_moves = board.available_moves(grid_pos, spots)
+        self.available_squares = [(self.x + change_x, self.y + change_y) for change_x, change_y in self.moves]  # before check with board
+        self.available_squares = board.available_squares((self.x, self.y), self.available_squares)  # after check with board
         self.picked_up_pos = self.x, self.y
         pass
 
     def drop(self, pos):
-        original_grid_pos = self.picked_up_pos[0] // SQUARE_SIZE, self.picked_up_pos[1] // SQUARE_SIZE
-        current_grid_pos = (self.x + self.image.get_width() // 2) // SQUARE_SIZE , (self.y + self.image.get_height() // 2) // SQUARE_SIZE
-        change = (original_grid_pos[0] - current_grid_pos[0], original_grid_pos[1] - current_grid_pos[1])
-        if change in self.moves:
-            self.x = pos[0] // SQUARE_SIZE * SQUARE_SIZE
-            self.y = pos[1] // SQUARE_SIZE * SQUARE_SIZE
+        grid_pos = pos[0] // SQUARE_SIZE, pos[1] // SQUARE_SIZE
+        if grid_pos in self.available_squares:
+            self.x, self.y = grid_pos
         else:
             self.x, self.y = self.picked_up_pos
-        # if pos in available moves
-        # go to pos else return to picked up pos
 
 
     # Piece
@@ -143,10 +187,10 @@ class Piece:
 class Pawn(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_pawn.png"
-        super().__init__(self.image, color, start, self.get_moves())
+        super().__init__(self.image, color, start)
 
     def get_moves(self):
-        return [(0, 1), (0, 2), (1, 1), (-1, 1)]
+        return [(0, -1), (0, -2), (1, -1), (-1, -1)]
 
     # Individual Pieces:
     # - tells piece class its moving constraints
@@ -157,11 +201,11 @@ class Pawn(Piece):
 class Rook(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_rook.png"
-        super().__init__(self.image, color, start, self.get_moves())
+        super().__init__(self.image, color, start)
 
     def get_moves(self):
         moves = []
-        for x in range(-6, 7):
+        for x in range(-7, 8):
             moves.append((x, 0))
             moves.append((0, x))
         return moves
@@ -170,7 +214,7 @@ class Rook(Piece):
 class Knight(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_knight.png"
-        super().__init__(self.image, color, start, self.get_moves())
+        super().__init__(self.image, color, start)
 
     def get_moves(self):
         moves = [(2, 1), (-2, 1), (2, -1), (-2, -1), (1, 2), (-1, 2), (1, -2), (-1, -2)]
@@ -180,11 +224,11 @@ class Knight(Piece):
 class Bishop(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_bishop.png"
-        super().__init__(self.image, color, start, self.get_moves())
+        super().__init__(self.image, color, start)
 
     def get_moves(self):
         moves = []
-        for i in range(-6, 7):
+        for i in range(-7, 8):
             moves.append((i, i))
             moves.append((-i, i))
         return moves
@@ -193,14 +237,14 @@ class Bishop(Piece):
 class Queen(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_queen.png"
-        super().__init__(self.image, color, start, self.get_moves())
+        super().__init__(self.image, color, start)
 
     def get_moves(self):
         moves = []
-        for i in range(-6, 7):
+        for i in range(-7, 8):
             moves.append((i, i))
             moves.append((-i, i))
-        for x in range(-6, 7):
+        for x in range(-7, 8):
             moves.append((x, 0))
             moves.append((0, x))
         return moves
@@ -209,7 +253,7 @@ class Queen(Piece):
 class King(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_king.png"
-        super().__init__(self.image, color, start, self.get_moves())
+        super().__init__(self.image, color, start)
 
     def get_moves(self):
         moves = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]
@@ -287,12 +331,11 @@ if __name__ == '__main__':  # running the game
                 if piece_following_mouse is not None:
                     piece_following_mouse.drop(event.pos)
                     piece_following_mouse = None
-                # ruf ne function die die figur zurecht legt
 
         # if dragging a piece
         if piece_following_mouse is not None:
-            piece_following_mouse.x = pygame.mouse.get_pos()[0] - piece_following_mouse.image.get_width() // 2
-            piece_following_mouse.y = pygame.mouse.get_pos()[1] - piece_following_mouse.image.get_height() // 2
+            piece_following_mouse.pixel_x = pygame.mouse.get_pos()[0] - piece_following_mouse.image.get_width() // 2
+            piece_following_mouse.pixel_y = pygame.mouse.get_pos()[1] - piece_following_mouse.image.get_height() // 2
 
         # update screen
         draw_board(screen)
