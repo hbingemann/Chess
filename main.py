@@ -91,18 +91,38 @@ class Board:
                 return piece
         return None
 
-    def available_squares(self, pos, squares):
-        new_squares = []
+    def get_available_squares(self, caller_piece, squares):
         for square in squares:
-            for piece in self.pieces:
-                piece_pos = piece.x, piece.y
-                if square == piece_pos:
-                    print("piece at " + str(square))
-                    break
-                else:
-                    new_squares.append(square)
-        return new_squares
-
+            if not 0 <= square[0] < 8 or not 0 <= square[1] < 8:
+                squares.remove(square)
+        pos = caller_piece.x, caller_piece.y
+        collision_squares = []
+        taking_squares = []
+        blocked_squares = []
+        for piece in self.pieces:
+            if (piece.x, piece.y) in squares:
+                collision_squares.append((piece.x, piece.y))
+                if piece.color != caller_piece.color:
+                    taking_squares.append((piece.x, piece.y))
+        for square in collision_squares:
+            change = square[0] - pos[0], square[1] - pos[1]
+            move_dir_x = change[0] // abs(change[0]) if change[0] != 0 else 0
+            move_dir_y = change[1] // abs(change[1]) if change[1] != 0 else 0
+            move_vector = move_dir_x, move_dir_y
+            for i in range(1, 8):
+                blocked_square = square[0] + move_dir_x * i, square[1] + move_dir_y * i
+                if blocked_square in squares:
+                    blocked_squares.append(blocked_square)
+        for square in blocked_squares:
+            if square in squares:
+                squares.remove(square)
+        for square in collision_squares:
+            if square in squares:
+                squares.remove(square)
+        for square in taking_squares:
+            if square in squares:
+                squares.remove(square)
+        return squares
 
     # Board:
     # - keeps track of piece locations
@@ -111,6 +131,7 @@ class Board:
 
 class Piece:
     def __init__(self, image, color, start):
+        self.color = color
         self.available_squares = []
         self.image = pygame.image.load(image)
         self.moves = self.get_moves()
@@ -165,8 +186,9 @@ class Piece:
         # give board that list
         # board returns all places it can move to
         # keep track of current (later original) location / show possible moves
-        self.available_squares = [(self.x + change_x, self.y + change_y) for change_x, change_y in self.moves]  # before check with board
-        self.available_squares = board.available_squares((self.x, self.y), self.available_squares)  # after check with board
+        legal_squares = [(self.x + change_x, self.y + change_y) for change_x, change_y in
+                         self.moves]  # before check with board
+        self.available_squares = board.get_available_squares(self, legal_squares)  # after check with board
         self.picked_up_pos = self.x, self.y
         pass
 
@@ -176,7 +198,6 @@ class Piece:
             self.x, self.y = grid_pos
         else:
             self.x, self.y = self.picked_up_pos
-
 
     # Piece
     # - knows where it can move towards based off of its own moving possibilities (e.g: bishop on diagonals)
