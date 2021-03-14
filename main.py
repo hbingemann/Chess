@@ -91,37 +91,65 @@ class Board:
                 return piece
         return None
 
+    def remove_at(self, caller_piece, pos):
+        for piece in self.pieces:
+            if (piece.x, piece.y) == pos and piece != caller_piece:
+                self.pieces.remove(piece)
+                return
+
     def get_available_squares(self, caller_piece, squares):
+        # make sure squares are on board
         for square in squares:
             if not 0 <= square[0] < 8 or not 0 <= square[1] < 8:
                 squares.remove(square)
+        # define variables
         pos = caller_piece.x, caller_piece.y
         collision_squares = []
         taking_squares = []
         blocked_squares = []
+        # check if a square is on a piece
         for piece in self.pieces:
             if (piece.x, piece.y) in squares:
                 collision_squares.append((piece.x, piece.y))
                 if piece.color != caller_piece.color:
                     taking_squares.append((piece.x, piece.y))
+        # check if squares are blocked
         for square in collision_squares:
+            # calculate what direction the square is from the original position
             change = square[0] - pos[0], square[1] - pos[1]
             move_dir_x = change[0] // abs(change[0]) if change[0] != 0 else 0
             move_dir_y = change[1] // abs(change[1]) if change[1] != 0 else 0
-            move_vector = move_dir_x, move_dir_y
+            # then disallow all squares behind that square
             for i in range(1, 8):
                 blocked_square = square[0] + move_dir_x * i, square[1] + move_dir_y * i
                 if blocked_square in squares:
                     blocked_squares.append(blocked_square)
+        # remove squares behind other pieces
         for square in blocked_squares:
             if square in squares:
                 squares.remove(square)
+        # remove squares where collisions occur
         for square in collision_squares:
             if square in squares:
                 squares.remove(square)
+        # add squares where collisions occur but a piece takes
         for square in taking_squares:
-            if square in squares:
-                squares.remove(square)
+            if square not in squares:
+                squares.append(square)
+        # check if a pawn is taking on a diagonal but theres no taking to be done
+        if isinstance(caller_piece, Pawn):
+            temp_squares = []
+            for square in squares:
+                # removing the square first then deciding whether to keep it later
+                # getting change
+                change = abs(square[0] - pos[0]), abs(square[1] - pos[1])
+                if change == (1, 1):  # if moving on a diagonal
+                    if square in taking_squares:  # if its a taking square and not creating a duplicate
+                        temp_squares.append(square)  # add it
+                elif change == (0, 1) or change == (0, 2):  # its moving on a straight
+                    if square not in taking_squares:
+                        temp_squares.append(square)
+            squares = temp_squares
         return squares
 
     # Board:
@@ -192,10 +220,16 @@ class Piece:
         self.picked_up_pos = self.x, self.y
         pass
 
-    def drop(self, pos):
+    def drop(self, pos, board):
         grid_pos = pos[0] // SQUARE_SIZE, pos[1] // SQUARE_SIZE
         if grid_pos in self.available_squares:
             self.x, self.y = grid_pos
+            if isinstance(self, Pawn):
+                if (0, -2) in self.moves:  # white pawn
+                    self.moves.remove((0, -2))
+                elif (0, 2) in self.moves:  # black pawn
+                    self.moves.remove((0, 2))
+            board.remove_at(self, (self.x, self.y))
         else:
             self.x, self.y = self.picked_up_pos
 
@@ -309,6 +343,8 @@ def default_setup():
     # king and queen
     whites.append(Queen("white", (3, 7)))
     whites.append(King("white", (4, 7)))
+    blacks.append(Queen("black", (3, 0)))
+    blacks.append(King("black", (4, 0)))
 
     return whites, blacks
 
@@ -350,7 +386,7 @@ if __name__ == '__main__':  # running the game
             # mouse up
             elif event.type == pygame.MOUSEBUTTONUP:
                 if piece_following_mouse is not None:
-                    piece_following_mouse.drop(event.pos)
+                    piece_following_mouse.drop(event.pos, board)
                     piece_following_mouse = None
 
         # if dragging a piece
@@ -360,7 +396,9 @@ if __name__ == '__main__':  # running the game
 
         # update screen
         draw_board(screen)
-        screen.blits((piece.image, piece.get_rect()) for piece in board.pieces)
+        screen.blits((piece.image, piece.get_rect()) for piece in board.pieces if piece is not piece_following_mouse)
+        if piece_following_mouse is not None:
+            screen.blit(piece_following_mouse.image, piece_following_mouse.get_rect())
         pygame.display.update()
 
     pygame.quit()
