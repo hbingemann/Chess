@@ -244,7 +244,10 @@ class Pawn(Piece):
         super().__init__(self.image, color, start)
 
     def get_moves(self):
-        return [(0, -1), (0, -2), (1, -1), (-1, -1)]
+        if self.color == "white":
+            return [(0, -1), (0, -2), (1, -1), (-1, -1)]
+        else:
+            return [[(0, 1), (0, 2), (1, 1), (-1, 1)]]
 
     # Individual Pieces:
     # - tells piece class its moving constraints
@@ -330,15 +333,22 @@ def default_setup():
     # pawns
     for i in range(8):
         whites.append(Pawn("white", (i, 6)))
+        blacks.append(Pawn("black", (i, 1)))
     # knights
     whites.append(Knight("white", (1, 7)))
     whites.append(Knight("white", (6, 7)))
+    blacks.append(Knight("black", (1, 0)))
+    blacks.append(Knight("black", (6, 0)))
     # rooks
     whites.append(Rook("white", (0, 7)))
     whites.append(Rook("white", (7, 7)))
+    blacks.append(Rook("black", (0, 0)))
+    blacks.append(Rook("black", (7, 0)))
     # bishops
     whites.append(Bishop("white", (2, 7)))
     whites.append(Bishop("white", (5, 7)))
+    blacks.append(Bishop("black", (2, 0)))
+    blacks.append(Bishop("black", (5, 0)))
     # king and queen
     whites.append(Queen("white", (3, 7)))
     whites.append(King("white", (4, 7)))
