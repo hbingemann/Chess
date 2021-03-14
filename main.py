@@ -134,13 +134,12 @@ class Board:
                 squares.remove(square)
         # add squares where collisions occur but a piece takes
         for square in taking_squares:
-            if square not in squares:
+            if square not in squares and square not in blocked_squares:
                 squares.append(square)
-        # check if a pawn is taking on a diagonal but theres no taking to be done
+        # check for special pawn rules
         if isinstance(caller_piece, Pawn):
             temp_squares = []
             for square in squares:
-                # removing the square first then deciding whether to keep it later
                 # getting change
                 change = abs(square[0] - pos[0]), abs(square[1] - pos[1])
                 if change == (1, 1):  # if moving on a diagonal
