@@ -3,6 +3,7 @@
 # ---------------------------------------------------
 
 import pygame
+import copy
 
 SIZE = WIDTH, HEIGHT = 800, 800
 FPS = 60
@@ -143,17 +144,36 @@ class Board:
                 # getting change
                 change = abs(square[0] - pos[0]), abs(square[1] - pos[1])
                 if change == (1, 1):  # if moving on a diagonal
-                    if square in taking_squares:  # if its a taking square and not creating a duplicate
+                    if square in taking_squares:  # if its a taking square
                         temp_squares.append(square)  # add it
                 elif change == (0, 1) or change == (0, 2):  # its moving on a straight
-                    if square not in taking_squares:
+                    if square not in taking_squares:  # if its not a taking square
                         temp_squares.append(square)
             squares = temp_squares
+        # check for castling
+        if isinstance(caller_piece, King):
+            castle_moves = [square for square in squares if abs(square.x - caller_piece.x) == 2]
+            rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color]
+
+            # suche rooks
+            # gucke ob die moves gemacht haben
+            # gucke ob ein von den squares ein 2 zur seite move ist (castle)
+            # gucke bei rook ob neben den konig ein available square ist
+            # beweg den king und den rook
         return squares
 
-    # Board:
-    # - keeps track of piece locations
-    # - tells piece if move is legal / possible (not blocked by other piece)
+    def king_in_check(self, color):
+        pass
+
+    def does_move_become_check(self, moving_piece, move_to_position):
+        prev_pieces = self.pieces.copy()
+        self.pieces.remove(moving_piece)
+        temp_piece = copy.deepcopy(moving_piece)
+        temp_piece.x, temp_piece.y = move_to_position
+        self.pieces.append(temp_piece)
+        incheck = self.king_in_check(moving_piece.color)
+        self.pieces = prev_pieces
+        return incheck
 
 
 class Piece:
