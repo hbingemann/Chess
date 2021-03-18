@@ -91,9 +91,9 @@ class Board:
                 return piece
         return None
 
-    def remove_at(self, caller_piece, pos):
+    def remove_at(self, caller_piece):
         for piece in self.pieces:
-            if (piece.x, piece.y) == pos and piece != caller_piece:
+            if (piece.x, piece.y) == (caller_piece.x, caller_piece.y) and piece.color != caller_piece.color:
                 self.pieces.remove(piece)
                 return
 
@@ -220,15 +220,18 @@ class Piece:
         pass
 
     def drop(self, pos, board):
-        grid_pos = pos[0] // SQUARE_SIZE, pos[1] // SQUARE_SIZE
-        if grid_pos in self.available_squares:
-            self.x, self.y = grid_pos
+        mouse_grid_pos = pos[0] // SQUARE_SIZE, pos[1] // SQUARE_SIZE
+        if mouse_grid_pos in self.available_squares:
+            self.x, self.y = mouse_grid_pos
+            board.remove_at(self)
             if isinstance(self, Pawn):
-                if (0, -2) in self.moves:  # white pawn
-                    self.moves.remove((0, -2))
-                elif (0, 2) in self.moves:  # black pawn
-                    self.moves.remove((0, 2))
-            board.remove_at(self, (self.x, self.y))
+                self.delete_moves()  # delete double move
+                if self.y == 0 or self.y == 7:
+                    new_piece = Queen(self.color, (self.x, self.y))
+                    board.pieces.append(new_piece)
+                    board.pieces.remove(self)
+            elif isinstance(self, King):
+                self.delete_moves()  # delete castling move
         else:
             self.x, self.y = self.picked_up_pos
 
@@ -246,8 +249,14 @@ class Pawn(Piece):
     def get_moves(self):
         if self.color == "white":
             return [(0, -1), (0, -2), (1, -1), (-1, -1)]
-        else:
-            return [[(0, 1), (0, 2), (1, 1), (-1, 1)]]
+        else:  # color = black
+            return [(0, 1), (0, 2), (1, 1), (-1, 1)]
+
+    def delete_moves(self):
+        if (0, -2) in self.moves:  # white pawn
+            self.moves.remove((0, -2))
+        elif (0, 2) in self.moves:  # black pawn
+            self.moves.remove((0, 2))
 
     # Individual Pieces:
     # - tells piece class its moving constraints
@@ -313,8 +322,13 @@ class King(Piece):
         super().__init__(self.image, color, start)
 
     def get_moves(self):
-        moves = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)]
+        moves = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1), (2, 0), (-2, 0)]
         return moves
+
+    def delete_moves(self):
+        if (2, 0) in self.moves:
+            self.moves.remove((2, 0))
+            self.moves.remove((-2, 0))
 
 
 def draw_board(surface):
