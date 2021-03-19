@@ -160,19 +160,25 @@ class Board:
             # gucke ob ein von den squares ein 2 zur seite move ist (castle)
             # gucke bei rook ob neben den konig ein available square ist
             # beweg den king und den rook
+        # check for king in check
         return squares
 
     def king_in_check(self, color):
-        pass
+        # color is color of king
+        king_pos = [(piece.x, piece.y) for piece in self.pieces if isinstance(piece, King) and piece.color == color]
+        king_pos = king_pos[0]  # because a list comprehension return a list
+        for piece in self.pieces:
+            if piece.color != color:
+                for square in piece.get_available_squares(self):
+                    if king_pos == square:
+                        return True
+        return False
 
     def does_move_become_check(self, moving_piece, move_to_position):
-        prev_pieces = self.pieces.copy()
-        self.pieces.remove(moving_piece)
-        temp_piece = copy.deepcopy(moving_piece)
-        temp_piece.x, temp_piece.y = move_to_position
-        self.pieces.append(temp_piece)
+        prev_position = moving_piece.x, moving_piece.y
+        moving_piece.x, moving_piece.y = move_to_position
         incheck = self.king_in_check(moving_piece.color)
-        self.pieces = prev_pieces
+        moving_piece.x, moving_piece.y = prev_position
         return incheck
 
 
@@ -233,9 +239,7 @@ class Piece:
         # give board that list
         # board returns all places it can move to
         # keep track of current (later original) location / show possible moves
-        legal_squares = [(self.x + change_x, self.y + change_y) for change_x, change_y in
-                         self.moves]  # before check with board
-        self.available_squares = board.get_available_squares(self, legal_squares)  # after check with board
+        self.available_squares = self.get_available_squares(board)
         self.picked_up_pos = self.x, self.y
         pass
 
@@ -255,11 +259,10 @@ class Piece:
         else:
             self.x, self.y = self.picked_up_pos
 
-    # Piece
-    # - knows where it can move towards based off of its own moving possibilities (e.g: bishop on diagonals)
-    # - kills itself if it has been taken
-    # - keeps track of mouse clicks then asks board if ok
-
+    def get_available_squares(self, board):
+        legal_squares = [(self.x + change_x, self.y + change_y) for change_x, change_y in self.moves]
+        final_squares = board.get_available_squares(self, legal_squares)
+        return final_squares
 
 class Pawn(Piece):
     def __init__(self, color, start):
