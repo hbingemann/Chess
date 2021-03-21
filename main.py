@@ -162,8 +162,37 @@ class Board:
         # castling moves
         if isinstance(caller_piece, King):
             castle_moves = [square for square in squares if abs(square[0] - caller_piece.x) == 2]
-            rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color]
-
+            # remove squares and append later if allowed
+            for square in castle_moves:
+                squares.remove(square)
+            # look for rooks
+            rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color and not piece.has_moved]
+            y_pos = 0 if caller_piece.color == "black" else 7
+            # look for rooks on right and left
+            rook_right = next((rook for rook in rooks if (rook.x, rook.y) == (0, y_pos)), None)
+            rook_left = next((rook for rook in rooks if (rook.x, rook.y) == (0, y_pos)), None)
+            if len(castle_moves) > 0 and len(rooks) > 0:
+                if (caller_piece.x + 1, caller_piece.y) in rook_right.get_possible_squares(self):
+                    # possible to castle right
+                    # legal to castle right? (not put in check)
+                    legal = True
+                    for i in range(0, 3):
+                        if self.does_move_become_check(caller_piece, (caller_piece.x + i, caller_piece.y)):
+                            legal = False
+                            break
+                    if legal:
+                        squares.append((caller_piece.x + 2, caller_piece.y))
+                        print("castle right is legal")
+                if (caller_piece.x - 1, caller_piece.y) in rook_left.get_possible_squares(self):
+                    # possible to castle left
+                    # legal to castle left?
+                    legal = True
+                    for i in range(-2, 1):
+                        if self.does_move_become_check(caller_piece, (caller_piece.x + i, caller_piece.y)):
+                            legal = False
+                            break
+                    if legal:
+                        squares.append((caller_piece.x + 2, caller_piece.y))
             # suche rooks
             # gucke ob die moves gemacht haben
             # gucke ob ein von den squares ein 2 zur seite move ist (castle)
@@ -176,7 +205,6 @@ class Board:
         # color is color of king that could be in check
         king_pos = [(piece.x, piece.y) for piece in self.pieces if isinstance(piece, King) and piece.color == color]
         king_pos = king_pos[0] if len(king_pos) > 0 else None
-        print(king_pos)
         for piece in self.pieces:
             if piece.color != color:
                 for square in piece.get_possible_squares(self):
@@ -274,6 +302,8 @@ class Piece:
                     board.pieces.remove(self)
             elif isinstance(self, King):
                 self.delete_moves()  # delete castling move
+            elif isinstance(self, Rook):
+                self.has_moved = True
         else:
             self.x, self.y = self.picked_up_pos
 
@@ -314,6 +344,7 @@ class Pawn(Piece):
 class Rook(Piece):
     def __init__(self, color, start):
         self.image = "img/" + color + "_rook.png"
+        self.has_moved = False
         super().__init__(self.image, color, start)
 
     def get_moves(self):
