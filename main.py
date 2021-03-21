@@ -160,9 +160,9 @@ class Board:
                         temp_squares.append(square)
             squares = temp_squares
         # castling moves
-        # if isinstance(caller_piece, King):
-        #     castle_moves = [square for square in squares if abs(square[0] - caller_piece.x) == 2]
-        #     rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color]
+        if isinstance(caller_piece, King):
+            castle_moves = [square for square in squares if abs(square[0] - caller_piece.x) == 2]
+            rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color]
 
             # suche rooks
             # gucke ob die moves gemacht haben
@@ -173,9 +173,10 @@ class Board:
         return squares
 
     def king_in_check(self, color):
-        # color is color of king
+        # color is color of king that could be in check
         king_pos = [(piece.x, piece.y) for piece in self.pieces if isinstance(piece, King) and piece.color == color]
-        king_pos = king_pos[0]  # because a list comprehension return a list
+        king_pos = king_pos[0] if len(king_pos) > 0 else None
+        print(king_pos)
         for piece in self.pieces:
             if piece.color != color:
                 for square in piece.get_possible_squares(self):
@@ -186,7 +187,15 @@ class Board:
     def does_move_become_check(self, moving_piece, move_to_position):
         prev_position = moving_piece.x, moving_piece.y
         moving_piece.x, moving_piece.y = move_to_position
+        taken_piece = None
+        for piece in self.pieces:
+            if (piece.x, piece.y) == move_to_position and piece is not moving_piece:
+                taken_piece = piece
+                self.pieces.remove(piece)
+                break
         incheck = self.king_in_check(moving_piece.color)
+        if taken_piece is not None:
+            self.pieces.append(taken_piece)
         moving_piece.x, moving_piece.y = prev_position
         return incheck
 
