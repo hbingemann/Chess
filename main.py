@@ -98,7 +98,16 @@ class Board:
                 self.pieces.remove(piece)
                 return
 
-    def get_available_squares(self, caller_piece, squares):
+    def get_available_squares(self, caller_piece, squares):  # if its moves are legal
+        squares = self.get_possible_squares(caller_piece, squares)
+        # check if putting own king in check
+        temp_squares = squares.copy()
+        for square in temp_squares:
+            if self.does_move_become_check(caller_piece, square):
+                squares.remove(square)
+        return squares
+
+    def get_possible_squares(self, caller_piece, squares):  # just if its moves are physically possible
         # make sure squares are on board
         for square in squares:
             if not 0 <= square[0] < 8 or not 0 <= square[1] < 8:
@@ -150,10 +159,10 @@ class Board:
                     if square not in taking_squares:  # if its not a taking square
                         temp_squares.append(square)
             squares = temp_squares
-        # check for castling
-        if isinstance(caller_piece, King):
-            castle_moves = [square for square in squares if abs(square.x - caller_piece.x) == 2]
-            rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color]
+        # castling moves
+        # if isinstance(caller_piece, King):
+        #     castle_moves = [square for square in squares if abs(square[0] - caller_piece.x) == 2]
+        #     rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color]
 
             # suche rooks
             # gucke ob die moves gemacht haben
@@ -169,7 +178,7 @@ class Board:
         king_pos = king_pos[0]  # because a list comprehension return a list
         for piece in self.pieces:
             if piece.color != color:
-                for square in piece.get_available_squares(self):
+                for square in piece.get_possible_squares(self):
                     if king_pos == square:
                         return True
         return False
@@ -263,6 +272,12 @@ class Piece:
         legal_squares = [(self.x + change_x, self.y + change_y) for change_x, change_y in self.moves]
         final_squares = board.get_available_squares(self, legal_squares)
         return final_squares
+
+    def get_possible_squares(self, board):
+        legal_squares = [(self.x + change_x, self.y + change_y) for change_x, change_y in self.moves]
+        squares = board.get_possible_squares(self, legal_squares)
+        return squares
+
 
 class Pawn(Piece):
     def __init__(self, color, start):
