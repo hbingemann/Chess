@@ -3,12 +3,11 @@
 # ---------------------------------------------------
 
 import pygame
-import copy
 
 SIZE = WIDTH, HEIGHT = 800, 800
 FPS = 60
 SQUARE_SIZE = WIDTH // 8
-AVAILABLE_MOVE_CIRCLE_COLOR = (100, 100, 100)
+AVAILABLE_MOVE_CIRCLE_COLOR = (50, 50, 50, 100)  # last num is alpha value
 AVAILABLE_MOVE_CIRCLE_RADIUS = 18
 
 
@@ -93,11 +92,11 @@ class Board:
         for square in squares:
             self.circles.append((square[0] * 100 + 50, square[1] * 100 + 50))
 
-    def mouse_down(self, pos, button):
+    def mouse_down(self, pos, button, turn):
         if button != 1:  # not left click
-            return None
+            return None  # then exit because it should be left click
         for piece in self.pieces:
-            if piece.get_rect().collidepoint(pos):
+            if piece.get_rect().collidepoint(pos) and piece.color == turn:
                 return piece
         return None
 
@@ -228,12 +227,13 @@ class Board:
                 self.pieces.remove(piece)
                 break
         # test if this temporary board sets king in check
-        incheck = self.king_in_check(moving_piece.color)
+        is_in_check = self.king_in_check(moving_piece.color)
         if taken_piece is not None:
             self.pieces.append(taken_piece)
         # reset back to original board
         moving_piece.x, moving_piece.y = prev_position
-        return incheck
+        # return whether that would set own king in check
+        return is_in_check
 
 
 class Piece:
@@ -299,6 +299,7 @@ class Piece:
         pass
 
     def drop(self, pos, board):
+        board.circles = []
         mouse_grid_pos = pos[0] // SQUARE_SIZE, pos[1] // SQUARE_SIZE
         if mouse_grid_pos in self.available_squares:
             self.x, self.y = mouse_grid_pos
@@ -444,8 +445,10 @@ def draw_board(surface):
 
 
 def draw_circles(surface, circles):
+    s = pygame.Surface(SIZE, pygame.SRCALPHA)
     for circle_pos in circles:
-        pygame.draw.circle(surface, AVAILABLE_MOVE_CIRCLE_COLOR, circle_pos, AVAILABLE_MOVE_CIRCLE_RADIUS)
+        pygame.draw.circle(s, AVAILABLE_MOVE_CIRCLE_COLOR, circle_pos, AVAILABLE_MOVE_CIRCLE_RADIUS)
+    surface.blit(s, (0, 0))
 
 
 def default_setup():
@@ -491,6 +494,7 @@ if __name__ == '__main__':  # running the game
     board.pieces = white_pieces + black_pieces
 
     piece_following_mouse = None
+    turn = "white"
 
     # game loop
     run = True
@@ -506,25 +510,27 @@ if __name__ == '__main__':  # running the game
             if event.type == pygame.QUIT:
                 run = False
 
-            # mouse down
+            # mouse click/down
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                piece = board.mouse_down(event.pos, event.button)
+                piece = board.mouse_down(event.pos, event.button, turn)
                 if piece is not None:
                     piece_following_mouse = piece
                     piece.pick_up(board)
 
-            # mouse up
+            # mouse release/up
             elif event.type == pygame.MOUSEBUTTONUP:
                 if piece_following_mouse is not None:
                     piece_following_mouse.drop(event.pos, board)
+                    if (piece_following_mouse.x, piece_following_mouse.y) != piece_following_mouse.picked_up_pos:
+                        turn = "black" if turn == "white" else "white"  # swap turn
                     piece_following_mouse = None
 
-        # if dragging a piece
+        # if dragging a piece then move piece to mouse
         if piece_following_mouse is not None:
             piece_following_mouse.pixel_x = pygame.mouse.get_pos()[0] - piece_following_mouse.image.get_width() // 2
             piece_following_mouse.pixel_y = pygame.mouse.get_pos()[1] - piece_following_mouse.image.get_height() // 2
 
-        # update screen
+        # draw background/board
         draw_board(screen)
         # draw all pieces
         screen.blits((piece.image, piece.get_rect()) for piece in board.pieces if piece is not piece_following_mouse)
@@ -533,6 +539,7 @@ if __name__ == '__main__':  # running the game
         # draw currently held piece
         if piece_following_mouse is not None:
             screen.blit(piece_following_mouse.image, piece_following_mouse.get_rect())
+        # update screen
         pygame.display.update()
 
     pygame.quit()
