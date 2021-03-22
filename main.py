@@ -8,6 +8,8 @@ import copy
 SIZE = WIDTH, HEIGHT = 800, 800
 FPS = 60
 SQUARE_SIZE = WIDTH // 8
+AVAILABLE_MOVE_CIRCLE_COLOR = (100, 100, 100)
+AVAILABLE_MOVE_CIRCLE_RADIUS = 18
 
 
 # - drag and drop of pieces if move is legal
@@ -83,6 +85,13 @@ class Board:
     def __init__(self):
         self.pieces = []
         # self.pieces = [class, class, class ...]
+        self.circles = []
+        # self.circles = [circle_center, circle_center ... ]
+
+    def new_circles(self, squares):
+        self.circles = []
+        for square in squares:
+            self.circles.append((square[0] * 100 + 50, square[1] * 100 + 50))
 
     def mouse_down(self, pos, button):
         if button != 1:  # not left click
@@ -166,13 +175,15 @@ class Board:
             for square in castle_moves:
                 squares.remove(square)
             # look for rooks
-            rooks = [piece for piece in self.pieces if isinstance(piece, Rook) and piece.color == caller_piece.color and not piece.has_moved]
+            rooks = [piece for piece in self.pieces if
+                     isinstance(piece, Rook) and piece.color == caller_piece.color and not piece.has_moved]
             y_pos = 0 if caller_piece.color == "black" else 7
             # look for rooks on right and left
-            rook_right = next((rook for rook in rooks if (rook.x, rook.y) == (0, y_pos)), None)
+            rook_right = next((rook for rook in rooks if (rook.x, rook.y) == (7, y_pos)), None)
             rook_left = next((rook for rook in rooks if (rook.x, rook.y) == (0, y_pos)), None)
             if len(castle_moves) > 0 and len(rooks) > 0:
-                if (caller_piece.x + 1, caller_piece.y) in rook_right.get_possible_squares(self):
+                if rook_right is not None and (caller_piece.x + 1, caller_piece.y) in rook_right.get_possible_squares(
+                        self):
                     # possible to castle right
                     # legal to castle right? (not put in check)
                     legal = True
@@ -182,8 +193,8 @@ class Board:
                             break
                     if legal:
                         squares.append((caller_piece.x + 2, caller_piece.y))
-                        print("castle right is legal")
-                if (caller_piece.x - 1, caller_piece.y) in rook_left.get_possible_squares(self):
+                if rook_left is not None and (caller_piece.x - 1, caller_piece.y) in rook_left.get_possible_squares(
+                        self):
                     # possible to castle left
                     # legal to castle left?
                     legal = True
@@ -192,13 +203,7 @@ class Board:
                             legal = False
                             break
                     if legal:
-                        squares.append((caller_piece.x + 2, caller_piece.y))
-            # suche rooks
-            # gucke ob die moves gemacht haben
-            # gucke ob ein von den squares ein 2 zur seite move ist (castle)
-            # gucke bei rook ob neben den konig ein available square ist
-            # beweg den king und den rook
-        # check for king in check
+                        squares.append((caller_piece.x - 2, caller_piece.y))
         return squares
 
     def king_in_check(self, color):
@@ -214,6 +219,7 @@ class Board:
 
     def does_move_become_check(self, moving_piece, move_to_position):
         prev_position = moving_piece.x, moving_piece.y
+        # temporarily create a new board
         moving_piece.x, moving_piece.y = move_to_position
         taken_piece = None
         for piece in self.pieces:
@@ -221,9 +227,11 @@ class Board:
                 taken_piece = piece
                 self.pieces.remove(piece)
                 break
+        # test if this temporary board sets king in check
         incheck = self.king_in_check(moving_piece.color)
         if taken_piece is not None:
             self.pieces.append(taken_piece)
+        # reset back to original board
         moving_piece.x, moving_piece.y = prev_position
         return incheck
 
@@ -286,6 +294,7 @@ class Piece:
         # board returns all places it can move to
         # keep track of current (later original) location / show possible moves
         self.available_squares = self.get_available_squares(board)
+        board.new_circles(self.available_squares)
         self.picked_up_pos = self.x, self.y
         pass
 
@@ -302,6 +311,21 @@ class Piece:
                     board.pieces.remove(self)
             elif isinstance(self, King):
                 self.delete_moves()  # delete castling move
+                # if just did a castle
+                # move the rook that castled with
+                y_pos = 0
+                if self.color == "white":
+                    y_pos = 7
+                if mouse_grid_pos[0] - self.picked_up_pos[0] == 2:
+                    # moved right
+                    for piece in board.pieces:
+                        if isinstance(piece, Rook) and (piece.x, piece.y) == (7, y_pos):
+                            piece.x = 5
+                elif mouse_grid_pos[0] - self.picked_up_pos[0] == -2:
+                    # moved left
+                    for piece in board.pieces:
+                        if isinstance(piece, Rook) and (piece.x, piece.y) == (0, y_pos):
+                            piece.x = 3
             elif isinstance(self, Rook):
                 self.has_moved = True
         else:
@@ -419,6 +443,11 @@ def draw_board(surface):
             pygame.draw.rect(surface, col, (x * SQUARE_SIZE, y * SQUARE_SIZE, WIDTH, HEIGHT))
 
 
+def draw_circles(surface, circles):
+    for circle_pos in circles:
+        pygame.draw.circle(surface, AVAILABLE_MOVE_CIRCLE_COLOR, circle_pos, AVAILABLE_MOVE_CIRCLE_RADIUS)
+
+
 def default_setup():
     whites = []
     blacks = []
@@ -497,7 +526,11 @@ if __name__ == '__main__':  # running the game
 
         # update screen
         draw_board(screen)
+        # draw all pieces
         screen.blits((piece.image, piece.get_rect()) for piece in board.pieces if piece is not piece_following_mouse)
+        # draw available move circles
+        draw_circles(screen, board.circles)
+        # draw currently held piece
         if piece_following_mouse is not None:
             screen.blit(piece_following_mouse.image, piece_following_mouse.get_rect())
         pygame.display.update()
