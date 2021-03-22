@@ -117,8 +117,9 @@ class Board:
 
     def get_possible_squares(self, caller_piece, squares):  # just if its moves are physically possible
         # make sure squares are on board
-        for square in squares:
-            if not 0 <= square[0] < 8 or not 0 <= square[1] < 8:
+        temp_squares = squares.copy()
+        for square in temp_squares:
+            if square[0] > 7 or square[0] < 0 or square[1] > 7 or square[1] < 0:
                 squares.remove(square)
         # define variables
         pos = caller_piece.x, caller_piece.y
@@ -524,6 +525,12 @@ if __name__ == '__main__':  # running the game
                     if (piece_following_mouse.x, piece_following_mouse.y) != piece_following_mouse.picked_up_pos:
                         turn = "black" if turn == "white" else "white"  # swap turn
                     piece_following_mouse = None
+                    # see if there is checkmate
+                    pieces_with_moves = [piece for piece in board.pieces if piece.color == turn
+                                         and len(piece.get_available_squares(board)) > 0]
+                    if len(pieces_with_moves) == 0:
+                        # there are no pieces with moves aka checkmate
+                        print("\n Checkmate!!")
 
         # if dragging a piece then move piece to mouse
         if piece_following_mouse is not None:
