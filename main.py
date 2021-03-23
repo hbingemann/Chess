@@ -529,8 +529,15 @@ if __name__ == '__main__':  # running the game
                     pieces_with_moves = [piece for piece in board.pieces if piece.color == turn
                                          and len(piece.get_available_squares(board)) > 0]
                     if len(pieces_with_moves) == 0:
-                        # there are no pieces with moves aka checkmate
-                        print("\n Checkmate!!")
+                        # there are no pieces with moves
+                        # it is either checkmate or stalemate
+                        if board.king_in_check(turn):
+                            winner = "White" if turn == "black" else "Black"
+                            print("\n Checkmate!! \n " + winner + " wins!!")
+                        else:
+                            print("\n Stalemate. It's a draw.")
+
+
 
         # if dragging a piece then move piece to mouse
         if piece_following_mouse is not None:
