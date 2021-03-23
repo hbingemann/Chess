@@ -10,6 +10,12 @@ SQUARE_SIZE = WIDTH // 8
 AVAILABLE_MOVE_CIRCLE_COLOR = (50, 50, 50, 100)  # last num is alpha value
 AVAILABLE_MOVE_CIRCLE_RADIUS = 18
 
+#TODO:
+#  - add stockfish
+#  - create menu
+#  - checkmate returns to menu
+#  - add a puzzle database
+#  - create endgame scenarios 
 
 # - drag and drop of pieces if move is legal
 # - every piece has it's own individual moves
