@@ -108,11 +108,50 @@ class Board:
 
     def get_available_squares(self, caller_piece, squares):  # if its moves are legal
         squares = self.get_possible_squares(caller_piece, squares)
+        squares = self.check_for_castling(caller_piece, squares)
         # check if putting own king in check
         temp_squares = squares.copy()
         for square in temp_squares:
             if self.does_move_become_check(caller_piece, square):
                 squares.remove(square)
+        return squares
+
+    def check_for_castling(self, caller_piece, squares):
+        if isinstance(caller_piece, King):
+            castle_moves = [square for square in squares if abs(square[0] - caller_piece.x) == 2]
+            # remove squares and append later if allowed
+            for square in castle_moves:
+                squares.remove(square)
+            # look for rooks
+            rooks = [piece for piece in self.pieces if
+                     isinstance(piece, Rook) and piece.color == caller_piece.color and not piece.has_moved]
+            y_pos = 0 if caller_piece.color == "black" else 7
+            # look for rooks on right and left
+            rook_right = next((rook for rook in rooks if (rook.x, rook.y) == (7, y_pos)), None)
+            rook_left = next((rook for rook in rooks if (rook.x, rook.y) == (0, y_pos)), None)
+            if len(castle_moves) > 0 and len(rooks) > 0:
+                if rook_right is not None and (caller_piece.x + 1, caller_piece.y) in rook_right.get_possible_squares(
+                        self):
+                    # possible to castle right
+                    # legal to castle right? (not put in check)
+                    legal = True
+                    for i in range(1, 3):
+                        if self.does_move_become_check(caller_piece, (caller_piece.x + i, caller_piece.y)):
+                            legal = False
+                            break
+                    if legal:
+                        squares.append((caller_piece.x + 2, caller_piece.y))
+                if rook_left is not None and (caller_piece.x - 1, caller_piece.y) in rook_left.get_possible_squares(
+                        self):
+                    # possible to castle left
+                    # legal to castle left?
+                    legal = True
+                    for i in range(-2, 0):
+                        if self.does_move_become_check(caller_piece, (caller_piece.x + i, caller_piece.y)):
+                            legal = False
+                            break
+                    if legal:
+                        squares.append((caller_piece.x - 2, caller_piece.y))
         return squares
 
     def get_possible_squares(self, caller_piece, squares):  # just if its moves are physically possible
@@ -168,42 +207,6 @@ class Board:
                     if square not in taking_squares:  # if its not a taking square
                         temp_squares.append(square)
             squares = temp_squares
-        # castling moves
-        if isinstance(caller_piece, King):
-            castle_moves = [square for square in squares if abs(square[0] - caller_piece.x) == 2]
-            # remove squares and append later if allowed
-            for square in castle_moves:
-                squares.remove(square)
-            # look for rooks
-            rooks = [piece for piece in self.pieces if
-                     isinstance(piece, Rook) and piece.color == caller_piece.color and not piece.has_moved]
-            y_pos = 0 if caller_piece.color == "black" else 7
-            # look for rooks on right and left
-            rook_right = next((rook for rook in rooks if (rook.x, rook.y) == (7, y_pos)), None)
-            rook_left = next((rook for rook in rooks if (rook.x, rook.y) == (0, y_pos)), None)
-            if len(castle_moves) > 0 and len(rooks) > 0:
-                if rook_right is not None and (caller_piece.x + 1, caller_piece.y) in rook_right.get_possible_squares(
-                        self):
-                    # possible to castle right
-                    # legal to castle right? (not put in check)
-                    legal = True
-                    for i in range(0, 3):
-                        if self.does_move_become_check(caller_piece, (caller_piece.x + i, caller_piece.y)):
-                            legal = False
-                            break
-                    if legal:
-                        squares.append((caller_piece.x + 2, caller_piece.y))
-                if rook_left is not None and (caller_piece.x - 1, caller_piece.y) in rook_left.get_possible_squares(
-                        self):
-                    # possible to castle left
-                    # legal to castle left?
-                    legal = True
-                    for i in range(-2, 1):
-                        if self.does_move_become_check(caller_piece, (caller_piece.x + i, caller_piece.y)):
-                            legal = False
-                            break
-                    if legal:
-                        squares.append((caller_piece.x - 2, caller_piece.y))
         return squares
 
     def king_in_check(self, color):
@@ -536,8 +539,6 @@ if __name__ == '__main__':  # running the game
                             print("\n Checkmate!! \n " + winner + " wins!!")
                         else:
                             print("\n Stalemate. It's a draw.")
-
-
 
         # if dragging a piece then move piece to mouse
         if piece_following_mouse is not None:
