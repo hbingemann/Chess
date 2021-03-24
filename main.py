@@ -10,24 +10,15 @@ SQUARE_SIZE = WIDTH // 8
 AVAILABLE_MOVE_CIRCLE_COLOR = (50, 50, 50, 100)  # last num is alpha value
 AVAILABLE_MOVE_CIRCLE_RADIUS = 18
 
-#TODO:
+
+# TODO:
+#  - en passant (special pawn move)
 #  - add stockfish
 #  - create menu
 #  - checkmate returns to menu
 #  - add a puzzle database
 #  - create endgame scenarios 
-
-# - drag and drop of pieces if move is legal
-# - every piece has it's own individual moves
-# - define move possibilities as a function?
-# - checking for legal move:
-#   - each piece has a list of tuples
-#   - tuples represent changes in x, y that they can do
-#   - ex: pawn (x + 0, y + 1)
-# - take pieces
-# - promote pawns
-# - look for checks / checkmate
-# - look for stalemate / draw
+#  - insufficient material = draw
 
 
 # Noch so ein paar Ideen...
@@ -96,7 +87,8 @@ class Board:
     def new_circles(self, squares):
         self.circles = []
         for square in squares:
-            self.circles.append((square[0] * 100 + 50, square[1] * 100 + 50))
+            self.circles.append(
+                (square[0] * SQUARE_SIZE + SQUARE_SIZE // 2, square[1] * SQUARE_SIZE + SQUARE_SIZE // 2))
 
     def mouse_down(self, pos, button, turn):
         if button != 1:  # not left click
@@ -454,6 +446,26 @@ def draw_board(surface):
             pygame.draw.rect(surface, col, (x * SQUARE_SIZE, y * SQUARE_SIZE, WIDTH, HEIGHT))
 
 
+def insufficient_material(pieces):  # check for insufficient material ex: king and king
+    pieces = [piece for piece in pieces if not isinstance(piece, King)]
+    piece_initials = [piece.__str__()[10] for piece in pieces]
+    if len(pieces) == 0:  # king and king
+        return True
+    if len(pieces) == 1:  # only one piece (besides kings)
+        if "B" in piece_initials:  # just a bishop cannot checkmate
+            return True
+        if "K" in piece_initials:  # just a knight cannot checkmate
+            return True
+    elif len(pieces) == 2:  # there are two pieces (besides king)
+        if piece_initials == ["B", "B"]:  # bishop vs. bishop cannot checkmate if bishops are on same color square
+            if pieces[0].color != pieces[1].color and (pieces[0].x + pieces[0].y) % 2 != (
+                    pieces[1].x + pieces[1].y) % 2:
+                return True
+    # these are the only insufficient materials
+    # so we can otherwise assume there is enough material to checkmate
+    return False
+
+
 def draw_circles(surface, circles):
     s = pygame.Surface(SIZE, pygame.SRCALPHA)
     for circle_pos in circles:
@@ -531,6 +543,7 @@ if __name__ == '__main__':  # running the game
             elif event.type == pygame.MOUSEBUTTONUP:
                 if piece_following_mouse is not None:
                     piece_following_mouse.drop(event.pos, board)
+                    # if the player moved their piece swap turns
                     if (piece_following_mouse.x, piece_following_mouse.y) != piece_following_mouse.picked_up_pos:
                         turn = "black" if turn == "white" else "white"  # swap turn
                     piece_following_mouse = None
@@ -544,7 +557,9 @@ if __name__ == '__main__':  # running the game
                             winner = "White" if turn == "black" else "Black"
                             print("\n Checkmate!! \n " + winner + " wins!!")
                         else:
-                            print("\n Stalemate. It's a draw.")
+                            print("\n Stalemate. \n It's a draw.")
+                    if insufficient_material(board.pieces):
+                        print("\n Insufficient Material. It's a draw.")
 
         # if dragging a piece then move piece to mouse
         if piece_following_mouse is not None:
