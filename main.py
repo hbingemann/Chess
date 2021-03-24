@@ -3,12 +3,14 @@
 # ---------------------------------------------------
 
 import pygame
+import os
 
-SIZE = WIDTH, HEIGHT = 800, 800
+SIZE = WIDTH, HEIGHT = 1000, 800
 FPS = 60
-SQUARE_SIZE = WIDTH // 8
+SQUARE_SIZE = 100
 AVAILABLE_MOVE_CIRCLE_COLOR = (50, 50, 50, 100)  # last num is alpha value
 AVAILABLE_MOVE_CIRCLE_RADIUS = 18
+MENU_BACKGROUND = pygame.transform.scale(pygame.image.load(os.path.join("img", "chess_background.jpg")), SIZE)
 
 
 # TODO:
@@ -204,7 +206,7 @@ class Piece:
     def __init__(self, image, color, start):
         self.color = color
         self.available_squares = []
-        self.image = pygame.image.load(image)
+        self.image = pygame.image.load(os.path.join("img", image))
         self.moves = self.get_moves()
         self._pixel_x, self._pixel_y = (i * 100 for i in start)
         self._x, self._y = start
@@ -309,7 +311,7 @@ class Piece:
 
 class Pawn(Piece):
     def __init__(self, color, start):
-        self.image = "img/" + color + "_pawn.png"
+        self.image = color + "_pawn.png"
         super().__init__(self.image, color, start)
 
     def get_moves(self):
@@ -332,7 +334,7 @@ class Pawn(Piece):
 
 class Rook(Piece):
     def __init__(self, color, start):
-        self.image = "img/" + color + "_rook.png"
+        self.image = color + "_rook.png"
         self.has_moved = False
         super().__init__(self.image, color, start)
 
@@ -346,7 +348,7 @@ class Rook(Piece):
 
 class Knight(Piece):
     def __init__(self, color, start):
-        self.image = "img/" + color + "_knight.png"
+        self.image = color + "_knight.png"
         super().__init__(self.image, color, start)
 
     def get_moves(self):
@@ -356,7 +358,7 @@ class Knight(Piece):
 
 class Bishop(Piece):
     def __init__(self, color, start):
-        self.image = "img/" + color + "_bishop.png"
+        self.image = color + "_bishop.png"
         super().__init__(self.image, color, start)
 
     def get_moves(self):
@@ -369,7 +371,7 @@ class Bishop(Piece):
 
 class Queen(Piece):
     def __init__(self, color, start):
-        self.image = "img/" + color + "_queen.png"
+        self.image = color + "_queen.png"
         super().__init__(self.image, color, start)
 
     def get_moves(self):
@@ -385,7 +387,7 @@ class Queen(Piece):
 
 class King(Piece):
     def __init__(self, color, start):
-        self.image = "img/" + color + "_king.png"
+        self.image = color + "_king.png"
         super().__init__(self.image, color, start)
 
     def get_moves(self):
@@ -405,7 +407,7 @@ def draw_board(surface):
                 col = "#61a055"  # green
             else:
                 col = "#ebf2d2"  # white
-            pygame.draw.rect(surface, col, (x * SQUARE_SIZE, y * SQUARE_SIZE, WIDTH, HEIGHT))
+            pygame.draw.rect(surface, col, (x * SQUARE_SIZE, y * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
 
 def draw_circles(surface, circles):
@@ -446,10 +448,8 @@ def default_setup():
     return whites, blacks
 
 
-def normal_game():
+def normal_game(screen):
     # setting some values that will be useful
-    screen = pygame.display.set_mode(SIZE)
-    pygame.display.set_caption('CHESS')
 
     draw_board(screen)
 
@@ -462,6 +462,7 @@ def normal_game():
 
     # game loop
     run = True
+    quit_window = False
     clock = pygame.time.Clock()
     while run:
         # regulate game speed
@@ -473,6 +474,7 @@ def normal_game():
             # close window
             if event.type == pygame.QUIT:
                 run = False
+                quit_window = True
 
             # mouse click/down
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -520,20 +522,53 @@ def normal_game():
         # update screen
         pygame.display.update()
 
+    # if quitting window
+    if quit_window:
+        pygame.event.post(pygame.event.Event(pygame.QUIT))
+
     return
 
 
 class GameState:
     def __init__(self):
-        self.state = "mainmenu"  # kann auch game oder eine submenu name sein
-
+        self.state = "mainmenu"  # kann auch ein game name oder eine submenu name sein
         self.main()
 
+    def draw_main_menu(self, surface):
+        pass
+
     def main(self):
+        # create pygame display
+        screen = pygame.display.set_mode(SIZE)
+        pygame.display.set_caption('CHESS')
+
+        # start main loop
+        clock = pygame.time.Clock()
         run = True
         while run:  # main loop guckt nach mouse clicks und so und lauft die game loops
-            normal_game()
-            run = False
+
+            # regulate fps
+            clock.tick(FPS)
+
+            # check events
+            for event in pygame.event.get():
+
+                # close window
+                if event.type == pygame.QUIT:
+                    run = False
+
+                # mouse click/down
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    pass
+
+                # mouse release/up
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    normal_game(screen)
+
+            # update screen
+            screen.blit(MENU_BACKGROUND, (0, 0))
+            pygame.display.update()
+
         pygame.quit()
 
     # weiss welche menu/spiel gerade active ist (state)
