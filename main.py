@@ -17,64 +17,7 @@ AVAILABLE_MOVE_CIRCLE_RADIUS = 18
 #  - create menu
 #  - checkmate returns to menu
 #  - add a puzzle database
-#  - create endgame scenarios 
-#  - insufficient material = draw
-
-
-# Noch so ein paar Ideen...
-#
-# Game Klasse
-# - koordiniert den Ablauf
-# - zum Beispiel die Uhr
-# - oder die Maus Klicks
-# - ruft dann die Animationen auf
-# - baut ein neues Spiel auf
-# - startet das Spiel (die Uhr)
-# - ruft den Computer auf einen Zug zu machen
-#
-#
-# Board Klasse
-# - weiss wo alle Figuren stehen
-# - und welche noch da sind
-# - schaut auch welche der erlaubten Züge noch möglich sind (da da keine anderen Figuren stehen)
-# - kann auch entscheiden. ob ein Maus Klick auf einem bestimmten Pixel ein e Figure trifft und wen ja, welche
-#
-# Piece Klasse
-# - alles, was alle Figuren gemeinsam haben
-# - so als eine Art Platzhalter fuer spaeter
-# - wissen wo sie stehen
-# - haben eine Liste mit erlaubten Zügen (relativ zu ihrem Standort)
-# - aber man muss auch Besonderheiten erlauben, wie zum Beispiel den ersten Zug vom Bauern... Oder die Rochade... Oder en passant...
-# - koennen auch sagen, auf welche Felder sie von ihren Standort aus gehen können (geben eine Liste zurueck)
-# - sind schwarz oder weiss
-# - haben ein Bild
-# - koennen sich bewegen von A nach B mit einem netten huebsch aussehenden coolen Move
-# - koennen explodieren, wenn sie geschlagen werden
-#
-# Einzelne Figuren Klassen
-# - besetzen die Platzhalter in "Piece" entsprechend
-# - zum Beispiel, welche spezifischen Zuege der Bauer machen kann - alle Bauern haben die gleichen Zuege - das ist so eine Art Klassen Variable, fuer alle gleich
-# - manche Platzhalter von "Piece" werden erst mit den eigentlichen "Instanzen" besetzt (zum Beispiel wo sie stehen), das ist von Bauer zu Bauer verschieden
-#
-#
-# - zum Beispiel, das Spiel "sieht" wohin die Maus geklickt hat - fragt das Board, ob das eine Figur ist. 
-# - wenn ja, dann Sagt das Spiel dem Board, dass diese Figur bewegt werden soll
-# - Board fragt dann die Figur, wohin sie denn so laufen kann
-# - Board checked dann welche von den legalen Felder denn so moeglich sind (da dort noch nix steht)
-# - das gibt eine kuerzere Liste von moeglichen Feldern
-# - sagt dann dem Spiel, wohin die Figur laufen kann (und gibt dem Spiel auch die Figur fuer drag and drop)
-# - Spiel malt dann die Punkte auf die Felder, wohin die Figur eigentlich nur hin laufen kann
-# - Spiel schaut dann, wohin der Spieler zum zweiten mal clickt - oder drag and drop macht
-# - wenn drag and drop, dann muss das Spiel die Figur mit bewegen
-# - wenn der zweite Klick oder der Drag and Drop auf einem Punkt-Feld landet, dann ruft das Spiel die Animation auf
-# - Spiel sagt der Figur, sich von A nach B zu bewegen
-# - Figure macht das dann
-# - Spiel sagt dann dem Board, dass die Figur nun auf dem neuen Platz steht
-# - Board checked ob das eine andere Figur geschlagen hat
-# - sagt dies dem Spiel dann, falss dem so ist
-# - Spiel sagt dann der geschlagenen Figur doch bitte zu explodieren
-#
-# oder so aehnlich?
+#  - create endgame scenarios
 
 
 class Board:
@@ -236,6 +179,25 @@ class Board:
         moving_piece.x, moving_piece.y = prev_position
         # return whether that would set own king in check
         return is_in_check
+
+    def insufficient_material(self):  # check for insufficient material ex: king and king
+        pieces = [piece for piece in self.pieces if not isinstance(piece, King)]
+        piece_initials = [piece.__str__()[10] for piece in pieces]
+        if len(pieces) == 0:  # king and king
+            return True
+        if len(pieces) == 1:  # only one piece (besides kings)
+            if "B" in piece_initials:  # just a bishop cannot checkmate
+                return True
+            if "K" in piece_initials:  # just a knight cannot checkmate
+                return True
+        elif len(pieces) == 2:  # there are two pieces (besides king)
+            if piece_initials == ["B", "B"]:  # bishop vs. bishop cannot checkmate if bishops are on same color square
+                if pieces[0].color != pieces[1].color and (pieces[0].x + pieces[0].y) % 2 != (
+                        pieces[1].x + pieces[1].y) % 2:
+                    return True
+        # these are the only insufficient materials
+        # so we can otherwise assume there is enough material to checkmate
+        return False
 
 
 class Piece:
@@ -446,26 +408,6 @@ def draw_board(surface):
             pygame.draw.rect(surface, col, (x * SQUARE_SIZE, y * SQUARE_SIZE, WIDTH, HEIGHT))
 
 
-def insufficient_material(pieces):  # check for insufficient material ex: king and king
-    pieces = [piece for piece in pieces if not isinstance(piece, King)]
-    piece_initials = [piece.__str__()[10] for piece in pieces]
-    if len(pieces) == 0:  # king and king
-        return True
-    if len(pieces) == 1:  # only one piece (besides kings)
-        if "B" in piece_initials:  # just a bishop cannot checkmate
-            return True
-        if "K" in piece_initials:  # just a knight cannot checkmate
-            return True
-    elif len(pieces) == 2:  # there are two pieces (besides king)
-        if piece_initials == ["B", "B"]:  # bishop vs. bishop cannot checkmate if bishops are on same color square
-            if pieces[0].color != pieces[1].color and (pieces[0].x + pieces[0].y) % 2 != (
-                    pieces[1].x + pieces[1].y) % 2:
-                return True
-    # these are the only insufficient materials
-    # so we can otherwise assume there is enough material to checkmate
-    return False
-
-
 def draw_circles(surface, circles):
     s = pygame.Surface(SIZE, pygame.SRCALPHA)
     for circle_pos in circles:
@@ -504,7 +446,7 @@ def default_setup():
     return whites, blacks
 
 
-if __name__ == '__main__':  # running the game
+def normal_game():
     # setting some values that will be useful
     screen = pygame.display.set_mode(SIZE)
     pygame.display.set_caption('CHESS')
@@ -558,8 +500,8 @@ if __name__ == '__main__':  # running the game
                             print("\n Checkmate!! \n " + winner + " wins!!")
                         else:
                             print("\n Stalemate. \n It's a draw.")
-                    if insufficient_material(board.pieces):
-                        print("\n Insufficient Material. It's a draw.")
+                    if board.insufficient_material():
+                        print("\n Insufficient Material. \n It's a draw.")
 
         # if dragging a piece then move piece to mouse
         if piece_following_mouse is not None:
@@ -578,4 +520,26 @@ if __name__ == '__main__':  # running the game
         # update screen
         pygame.display.update()
 
-    pygame.quit()
+    return
+
+
+class GameState:
+    def __init__(self):
+        self.state = "mainmenu"  # kann auch game oder eine submenu name sein
+
+        self.main()
+
+    def main(self):
+        run = True
+        while run:  # main loop guckt nach mouse clicks und so und lauft die game loops
+            normal_game()
+            run = False
+        pygame.quit()
+
+    # weiss welche menu/spiel gerade active ist (state)
+    # laeuft functionen die spiele sind
+    # behandelt die menus
+
+
+if __name__ == '__main__':
+    gamestate = GameState()
