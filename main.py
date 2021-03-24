@@ -535,7 +535,15 @@ class GameState:
         self.main()
 
     def draw_main_menu(self, surface):
-        pass
+        button_size = 200, 50
+        buttons = []
+        for i in range(1, 7):
+            button_file = os.path.join("img", "button" + str(i) + ".png")
+            button = pygame.transform.scale(pygame.image.load(button_file), button_size)
+            buttons.append(button)
+        for i, button in enumerate(buttons):
+            surface.blit(button, (170, 100 * i + 170))
+
 
     def main(self):
         # create pygame display
@@ -567,6 +575,7 @@ class GameState:
 
             # update screen
             screen.blit(MENU_BACKGROUND, (0, 0))
+            self.draw_main_menu(screen)
             pygame.display.update()
 
         pygame.quit()
