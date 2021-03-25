@@ -536,21 +536,22 @@ def normal_game(screen):
 
 
 class Button:
-    def __init__(self, screen, image, pos, size, text):
+    def __init__(self, screen, image, pos, size, text, callback):
         self.screen = screen
         self.image = pygame.transform.scale(pygame.image.load(image), size)
         self.pos = self.x, self.y = pos
         self.font = pygame.font.SysFont("loma", 48, True)
         self.size = self.width, self.height = size
         self.text = text
+        self.callback = callback
         self.draw()
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def mouse_click(self, mouse_pos, function):
+    def mouse_down(self, mouse_pos):
         if pygame.Rect.collidepoint(self.get_rect(), mouse_pos):
-            function()
+            self.callback()
 
     def draw(self):
         self.screen.blit(self.image, self.pos)
@@ -558,71 +559,92 @@ class Button:
         text_x = self.x + self.width // 2 - text.get_width() // 2
         text_y = self.y + self.height // 2 - text.get_height() // 2
         self.screen.blit(text, (text_x, text_y))
-
-    def mouse_is_over(self, pos):
-        if pygame.Rect.collidepoint(self.get_rect(), pos):
+        if pygame.Rect.collidepoint(self.get_rect(), pygame.mouse.get_pos()):
             s = pygame.Surface(SIZE, pygame.SRCALPHA)
             pygame.draw.rect(s, BLACK, self.get_rect())
             self.screen.blit(s, (0, 0))
 
 
+class Menu:
+    def __init__(self, screen):
+        self.widgets = []
+        self.title = None
+        self.title_pos = None
+        self.screen = screen
+
+    def draw(self):
+        for widget in self.widgets:
+            widget.draw()
+        self.screen.blit(self.title, self.title_pos)
+
+    def back(self):
+        pass
+
+    def add_button(self, text, callback):
+        num_widgets = len(self.widgets)
+        button_size = 200, 60
+        button_file = os.path.join("img", "button" + str(num_widgets % 6 + 1) + ".png")
+        pos = 170, 100 * num_widgets + 170
+        button = Button(self.screen, button_file, pos, button_size, text, callback)
+        self.widgets.append(button)
+        pass
+
+    def add_slider(self):
+        pass
+
+    def add_dropdown(self):
+        pass
+
+    def add_title(self, text):
+        font = pygame.font.SysFont("Ubuntu", 96)
+        title = font.render(text, True, (220, 220, 220))
+        pos = 260 - title.get_width() // 2, 30
+        self.title = title
+        self.title_pos = pos
+
+    def mouse_down(self, mouse_pos):
+        for widget in self.widgets:
+            widget.mouse_down(mouse_pos)
+
+
 class GameState:
     def __init__(self):
-        self.state = "mainmenu"  # kann auch ein game name oder eine submenu name sein
-        self.screen = None
-        self.main()
-
-    def draw_main_menu(self):
-        button_size = 200, 60
-        buttons = []
-        button_names = ["Play", "Settings", "Quit"]
-        for i, name in enumerate(button_names):
-            button_file = os.path.join("img", "button" + str(i % 6 + 1) + ".png")
-            pos = 170, 100 * i + 170
-            button = Button(self.screen, button_file, pos, button_size, name)
-            buttons.append(button)
-        title_font = pygame.font.SysFont("Ubuntu", 96)
-        title_pos = 140, 30
-        title = title_font.render("Chess", True, (220, 220, 220))
-        self.screen.blit(title, title_pos)
-        # returns button classes
-        return buttons
-
-    def draw_settings(self):
-        button_size = 200, 60
-        buttons = []
-        button_names = ["Play", "Back", "Quit"]
-        for i, name in enumerate(button_names):
-            button_file = os.path.join("img", "button" + str(i % 6 + 1) + ".png")
-            pos = 170, 100 * i + 170
-            button = Button(self.screen, button_file, pos, button_size, name)
-            buttons.append(button)
-        title_font = pygame.font.SysFont("Ubuntu", 96)
-        title_pos = 140, 30
-        title = title_font.render("Chess", True, (220, 220, 220))
-        self.screen.blit(title, title_pos)
-        # returns button classes
-        return buttons
-
-    def main(self):
-        # create pygame display
         self.screen = pygame.display.set_mode(SIZE)
         pygame.display.set_caption('CHESS')
-        self.menu(self.screen)  # runs menu loop
+        # initialize menus
+        self.main_menu = Menu(self.screen)
+        self.settings_menu = Menu(self.screen)
+        # add menu widgets
+        self.add_main_menu_widgets()
+        self.add_settings_menu_widgets()
+        # begin loop
+        self.active_menu = self.main_menu
+        self.menu_loop(self.screen)
 
-    def set_state(self, state):
-        self.state = state
+    def add_main_menu_widgets(self):
+        menu = self.main_menu
+        button_info = {"Play": lambda: normal_game(self.screen),
+                       "Settings": lambda: self.set_active_menu(self.settings_menu),
+                       "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
+                       }
+        for name, callback in button_info.items():
+            menu.add_button(name, callback)
+        menu.add_title("Chess")
 
-    def menu(self, screen):
-        # keep track of buttons
-        buttons = []  # = [class, class, class ...
+    def add_settings_menu_widgets(self):
+        menu = self.settings_menu
+        button_info = {"Play": lambda: normal_game(self.screen),
+                       "Back": lambda: self.set_active_menu(self.main_menu),
+                       "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
+                       }
+        for name, callback in button_info.items():
+            menu.add_button(name, callback)
+        menu.add_title("Settings")
 
-        # keep track of button names -> functions
-        button_functions = {"Play": lambda: normal_game(self.screen),
-                            "Settings": lambda: self.set_state("settings"),
-                            "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
-                            "Back": lambda: self.set_state("mainmenu"),
-                            }
+    def set_active_menu(self, menu):
+        self.active_menu = menu
+
+    def menu_loop(self, screen):
 
         # start main loop
         clock = pygame.time.Clock()
@@ -641,28 +663,22 @@ class GameState:
 
                 # mouse click/down
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    for button in buttons:
-                        button.mouse_click(event.pos, button_functions[button.text])
+                    self.active_menu.mouse_down(event.pos)
 
                 # mouse release/up
                 elif event.type == pygame.MOUSEBUTTONUP:
                     pass
 
+                # mouse move
+                elif event.type == pygame.MOUSEMOTION:
+                    pass
+
             # update screen
             screen.blit(MENU_BACKGROUND, (0, 0))
-            if self.state == "mainmenu":
-                buttons = self.draw_main_menu()
-            elif self.state == "settings":
-                buttons = self.draw_settings()
-            for button in buttons:
-                button.mouse_is_over(pygame.mouse.get_pos())
+            self.active_menu.draw()
             pygame.display.update()
 
         pygame.quit()
-
-    # weiss welche menu/spiel gerade active ist (state)
-    # laeuft functionen die spiele sind
-    # behandelt die menus
 
 
 if __name__ == '__main__':
