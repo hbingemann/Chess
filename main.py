@@ -5,12 +5,17 @@
 import pygame
 import os
 
+# initialize packages
+pygame.font.init()
+
 SIZE = WIDTH, HEIGHT = 1000, 800
 FPS = 60
 SQUARE_SIZE = 100
 AVAILABLE_MOVE_CIRCLE_COLOR = (50, 50, 50, 100)  # last num is alpha value
-AVAILABLE_MOVE_CIRCLE_RADIUS = 18
+AVAILABLE_MOVE_CIRCLE_RADIUS = 18 * 0.01 * SQUARE_SIZE
 MENU_BACKGROUND = pygame.transform.scale(pygame.image.load(os.path.join("img", "chess_background.jpg")), SIZE)
+LIGHT_GREY = (150, 150, 150, 100)
+BLACK = (0, 0, 0, 50)
 
 
 # TODO:
@@ -207,8 +212,9 @@ class Piece:
         self.color = color
         self.available_squares = []
         self.image = pygame.image.load(os.path.join("img", image))
+        self.image = pygame.transform.scale(self.image, (SQUARE_SIZE, SQUARE_SIZE))
         self.moves = self.get_moves()
-        self._pixel_x, self._pixel_y = (i * 100 for i in start)
+        self._pixel_x, self._pixel_y = (i * SQUARE_SIZE for i in start)
         self._x, self._y = start
         self.picked_up_pos = self.x, self.y
 
@@ -529,26 +535,94 @@ def normal_game(screen):
     return
 
 
+class Button:
+    def __init__(self, screen, image, pos, size, text):
+        self.screen = screen
+        self.image = pygame.transform.scale(pygame.image.load(image), size)
+        self.pos = self.x, self.y = pos
+        self.font = pygame.font.SysFont("loma", 48, True)
+        self.size = self.width, self.height = size
+        self.text = text
+        self.draw()
+
+    def get_rect(self):
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def mouse_click(self, mouse_pos, function):
+        if pygame.Rect.collidepoint(self.get_rect(), mouse_pos):
+            function()
+
+    def draw(self):
+        self.screen.blit(self.image, self.pos)
+        text = self.font.render(self.text, True, (20, 20, 20))
+        text_x = self.x + self.width // 2 - text.get_width() // 2
+        text_y = self.y + self.height // 2 - text.get_height() // 2
+        self.screen.blit(text, (text_x, text_y))
+
+    def mouse_is_over(self, pos):
+        if pygame.Rect.collidepoint(self.get_rect(), pos):
+            s = pygame.Surface(SIZE, pygame.SRCALPHA)
+            pygame.draw.rect(s, BLACK, self.get_rect())
+            self.screen.blit(s, (0, 0))
+
+
 class GameState:
     def __init__(self):
         self.state = "mainmenu"  # kann auch ein game name oder eine submenu name sein
+        self.screen = None
         self.main()
 
-    def draw_main_menu(self, surface):
-        button_size = 200, 50
+    def draw_main_menu(self):
+        button_size = 200, 60
         buttons = []
-        for i in range(1, 7):
-            button_file = os.path.join("img", "button" + str(i) + ".png")
-            button = pygame.transform.scale(pygame.image.load(button_file), button_size)
+        button_names = ["Play", "Settings", "Quit"]
+        for i, name in enumerate(button_names):
+            button_file = os.path.join("img", "button" + str(i % 6 + 1) + ".png")
+            pos = 170, 100 * i + 170
+            button = Button(self.screen, button_file, pos, button_size, name)
             buttons.append(button)
-        for i, button in enumerate(buttons):
-            surface.blit(button, (170, 100 * i + 170))
+        title_font = pygame.font.SysFont("Ubuntu", 96)
+        title_pos = 140, 30
+        title = title_font.render("Chess", True, (220, 220, 220))
+        self.screen.blit(title, title_pos)
+        # returns button classes
+        return buttons
 
+    def draw_settings(self):
+        button_size = 200, 60
+        buttons = []
+        button_names = ["Play", "Back", "Quit"]
+        for i, name in enumerate(button_names):
+            button_file = os.path.join("img", "button" + str(i % 6 + 1) + ".png")
+            pos = 170, 100 * i + 170
+            button = Button(self.screen, button_file, pos, button_size, name)
+            buttons.append(button)
+        title_font = pygame.font.SysFont("Ubuntu", 96)
+        title_pos = 140, 30
+        title = title_font.render("Chess", True, (220, 220, 220))
+        self.screen.blit(title, title_pos)
+        # returns button classes
+        return buttons
 
     def main(self):
         # create pygame display
-        screen = pygame.display.set_mode(SIZE)
+        self.screen = pygame.display.set_mode(SIZE)
         pygame.display.set_caption('CHESS')
+        self.menu(self.screen)  # runs menu loop
+
+    def set_state(self, state):
+        self.state = state
+
+    def menu(self, screen):
+        # keep track of buttons
+        buttons = []  # = [class, class, class ...
+
+        # keep track of button names -> functions
+        button_functions = {"Play": lambda: normal_game(self.screen),
+                            "Settings": lambda: self.set_state("settings"),
+                            "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
+                            "Back": lambda: self.set_state("mainmenu"),
+                            }
 
         # start main loop
         clock = pygame.time.Clock()
@@ -567,15 +641,21 @@ class GameState:
 
                 # mouse click/down
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    pass
+                    for button in buttons:
+                        button.mouse_click(event.pos, button_functions[button.text])
 
                 # mouse release/up
                 elif event.type == pygame.MOUSEBUTTONUP:
-                    normal_game(screen)
+                    pass
 
             # update screen
             screen.blit(MENU_BACKGROUND, (0, 0))
-            self.draw_main_menu(screen)
+            if self.state == "mainmenu":
+                buttons = self.draw_main_menu()
+            elif self.state == "settings":
+                buttons = self.draw_settings()
+            for button in buttons:
+                button.mouse_is_over(pygame.mouse.get_pos())
             pygame.display.update()
 
         pygame.quit()
