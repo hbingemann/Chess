@@ -4,12 +4,13 @@
 
 import pygame
 import os
-import subprocess
-
+from stockfishWrapper import StockfishWrapper
 
 # initialize packages
 pygame.font.init()
+stockfish = StockfishWrapper()
 
+# global constants
 SIZE = WIDTH, HEIGHT = 1000, 800
 FPS = 60
 SQUARE_SIZE = 100
@@ -35,6 +36,9 @@ class Board:
         # self.pieces = [class, class, class ...]
         self.circles = []
         # self.circles = [circle_center, circle_center ... ]
+        self.moves = []
+        # self.moves = ["e2e4", "e7e5", ...
+        self.turn = "white"
 
     def new_circles(self, squares):
         self.circles = []
@@ -42,11 +46,11 @@ class Board:
             self.circles.append(
                 (square[0] * SQUARE_SIZE + SQUARE_SIZE // 2, square[1] * SQUARE_SIZE + SQUARE_SIZE // 2))
 
-    def mouse_down(self, pos, button, turn):
+    def mouse_down(self, pos, button):
         if button != 1:  # not left click
             return None  # then exit because it should be left click
         for piece in self.pieces:
-            if piece.get_rect().collidepoint(pos) and piece.color == turn:
+            if piece.get_rect().collidepoint(pos) and piece.color == self.turn:
                 return piece
         return None
 
@@ -208,6 +212,20 @@ class Board:
         # so we can otherwise assume there is enough material to checkmate
         return False
 
+    def add_move(self, move):
+        self.moves.append(move)
+        stockfish.set_position(self.moves)
+        end = "\n" if self.turn == "black" else " "
+        print(move, end=end)
+        self.turn = "black" if self.turn == "white" else "white"  # swap turn
+
+    def move_piece_at_to(self, move_from, move_to):
+        for piece in self.pieces:
+            if (piece.x, piece.y) == move_from:
+                piece.pick_up(self)
+                piece.drop(move_to, self)
+                break
+
 
 class Piece:
     def __init__(self, image, color, start):
@@ -259,6 +277,15 @@ class Piece:
     def get_moves(self):
         raise NotImplementedError
 
+    def get_initial(self):
+        raise NotImplementedError
+
+    def get_initial_code(self):
+        if self.color == "white":
+            return self.get_initial().upper()
+        else:
+            return self.get_initial().lower()
+
     def get_rect(self):
         return pygame.Rect(self.pixel_x, self.pixel_y, self.image.get_width(), self.image.get_height())
 
@@ -274,9 +301,8 @@ class Piece:
 
     def drop(self, pos, board):
         board.circles = []
-        mouse_grid_pos = pos[0] // SQUARE_SIZE, pos[1] // SQUARE_SIZE
-        if mouse_grid_pos in self.available_squares:
-            self.x, self.y = mouse_grid_pos
+        if pos in self.available_squares:
+            self.x, self.y = pos
             board.remove_at(self)
             if isinstance(self, Pawn):
                 self.delete_moves()  # delete double move
@@ -291,18 +317,19 @@ class Piece:
                 y_pos = 0
                 if self.color == "white":
                     y_pos = 7
-                if mouse_grid_pos[0] - self.picked_up_pos[0] == 2:
+                if pos[0] - self.picked_up_pos[0] == 2:
                     # moved right
                     for piece in board.pieces:
                         if isinstance(piece, Rook) and (piece.x, piece.y) == (7, y_pos):
                             piece.x = 5
-                elif mouse_grid_pos[0] - self.picked_up_pos[0] == -2:
+                elif pos[0] - self.picked_up_pos[0] == -2:
                     # moved left
                     for piece in board.pieces:
                         if isinstance(piece, Rook) and (piece.x, piece.y) == (0, y_pos):
                             piece.x = 3
             elif isinstance(self, Rook):
                 self.has_moved = True
+            board.add_move(stockfish.get_algebraic_notation(self, self.picked_up_pos, pos))
         else:
             self.x, self.y = self.picked_up_pos
 
@@ -334,6 +361,9 @@ class Pawn(Piece):
         elif (0, 2) in self.moves:  # black pawn
             self.moves.remove((0, 2))
 
+    def get_initial(self):
+        return "P"
+
     # Individual Pieces:
     # - tells piece class its moving constraints
     # - its start
@@ -353,6 +383,9 @@ class Rook(Piece):
             moves.append((0, x))
         return moves
 
+    def get_initial(self):
+        return "R"
+
 
 class Knight(Piece):
     def __init__(self, color, start):
@@ -362,6 +395,9 @@ class Knight(Piece):
     def get_moves(self):
         moves = [(2, 1), (-2, 1), (2, -1), (-2, -1), (1, 2), (-1, 2), (1, -2), (-1, -2)]
         return moves
+
+    def get_initial(self):
+        return "N"
 
 
 class Bishop(Piece):
@@ -375,6 +411,9 @@ class Bishop(Piece):
             moves.append((i, i))
             moves.append((-i, i))
         return moves
+
+    def get_initial(self):
+        return "B"
 
 
 class Queen(Piece):
@@ -392,6 +431,9 @@ class Queen(Piece):
             moves.append((0, x))
         return moves
 
+    def get_initial(self):
+        return "Q"
+
 
 class King(Piece):
     def __init__(self, color, start):
@@ -406,6 +448,9 @@ class King(Piece):
         if (2, 0) in self.moves:
             self.moves.remove((2, 0))
             self.moves.remove((-2, 0))
+
+    def get_initial(self):
+        return "K"
 
 
 def draw_board(surface):
@@ -456,7 +501,7 @@ def default_setup():
     return whites, blacks
 
 
-def normal_game(screen):
+def normal_game(screen, computer=False):
     # setting some values that will be useful
 
     draw_board(screen)
@@ -466,7 +511,6 @@ def normal_game(screen):
     board.pieces = white_pieces + black_pieces
 
     piece_following_mouse = None
-    turn = "white"
 
     # game loop
     run = True
@@ -486,27 +530,26 @@ def normal_game(screen):
 
             # mouse click/down
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                piece = board.mouse_down(event.pos, event.button, turn)
+                piece = board.mouse_down(event.pos, event.button)
                 if piece is not None:
-                    piece_following_mouse = piece
-                    piece.pick_up(board)
+                    if not (board.turn == "black" and computer):
+                        piece_following_mouse = piece
+                        piece.pick_up(board)
 
             # mouse release/up
             elif event.type == pygame.MOUSEBUTTONUP:
                 if piece_following_mouse is not None:
-                    piece_following_mouse.drop(event.pos, board)
-                    # if the player moved their piece swap turns
-                    if (piece_following_mouse.x, piece_following_mouse.y) != piece_following_mouse.picked_up_pos:
-                        turn = "black" if turn == "white" else "white"  # swap turn
+                    mouse_grid_pos = event.pos[0] // SQUARE_SIZE, event.pos[1] // SQUARE_SIZE
+                    piece_following_mouse.drop(mouse_grid_pos, board)
                     piece_following_mouse = None
                     # see if there is checkmate
-                    pieces_with_moves = [piece for piece in board.pieces if piece.color == turn
+                    pieces_with_moves = [piece for piece in board.pieces if piece.color == board.turn
                                          and len(piece.get_available_squares(board)) > 0]
                     if len(pieces_with_moves) == 0:
                         # there are no pieces with moves
                         # it is either checkmate or stalemate
-                        if board.king_in_check(turn):
-                            winner = "White" if turn == "black" else "Black"
+                        if board.king_in_check(board.turn):
+                            winner = "White" if board.turn == "black" else "Black"
                             print("\n Checkmate!! \n " + winner + " wins!!")
                         else:
                             print("\n Stalemate. \n It's a draw.")
@@ -529,6 +572,12 @@ def normal_game(screen):
             screen.blit(piece_following_mouse.image, piece_following_mouse.get_rect())
         # update screen
         pygame.display.update()
+
+        # after we updated the graphic let computer go
+        if computer and board.turn == "black":  # playing against computer
+            move = stockfish.get_best_move_time(200)
+            move_from, move_to = stockfish.get_coordinate_notation(move)
+            board.move_piece_at_to(move_from, move_to)
 
     # if quitting window
     if quit_window:
@@ -625,7 +674,8 @@ class GameState:
 
     def add_main_menu_widgets(self):
         menu = self.main_menu
-        button_info = {"Play": lambda: normal_game(self.screen),
+        button_info = {"Human": lambda: normal_game(self.screen),
+                       "Computer": lambda: normal_game(self.screen, computer=True),
                        "Settings": lambda: self.set_active_menu(self.settings_menu),
                        "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
                        }
@@ -635,8 +685,7 @@ class GameState:
 
     def add_settings_menu_widgets(self):
         menu = self.settings_menu
-        button_info = {"Play": lambda: normal_game(self.screen),
-                       "Back": lambda: self.set_active_menu(self.main_menu),
+        button_info = {"Back": lambda: self.set_active_menu(self.main_menu),
                        "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
                        }
         for name, callback in button_info.items():
