@@ -1,0 +1,5 @@
+Stockfish/
+.DS_Store
+venv/lib/.DS_Store
+venv/lib/*/.DS_Store
+venv/lib/*/*/.DS_Store
