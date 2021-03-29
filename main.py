@@ -19,6 +19,8 @@ AVAILABLE_MOVE_CIRCLE_RADIUS = 18 * 0.01 * SQUARE_SIZE
 MENU_BACKGROUND = pygame.transform.scale(pygame.image.load(os.path.join("img", "chess_background.jpg")), SIZE)
 LIGHT_GREY = (150, 150, 150, 100)
 BLACK = (0, 0, 0, 50)
+BLUE = (0, 0, 200)
+WHITE = (220, 220, 220)
 
 
 # TODO:
@@ -586,6 +588,65 @@ def normal_game(screen, computer=False):
     return
 
 
+class Slider:
+    def __init__(self, screen, background_image, pos, size, minimum, maximum, text, callback):
+        self.screen = screen
+        self.pos = self.x, self.y = pos
+        self.font = pygame.font.SysFont("loma", 48, True)
+        self.size = self.width, self.height = 300, 60  # hier hier hier hier ist size
+        self.background_image = pygame.transform.scale(pygame.image.load(background_image), self.size)
+        self.text = text
+        self.callback = callback
+        self.max = maximum
+        self.min = minimum
+        self.value = minimum
+        self.following_mouse = False
+        self.num_increments = self.max - self.min + 1  # plus one because max and min included
+        self.increment_size = self.width / self.num_increments
+        self.line_size = self.line_width, self.line_height = self.width - 40, 5
+
+    def draw(self):
+        # background
+        self.screen.blit(self.background_image, self.get_rect())
+        # always want to be following mouse if supposed to
+        self.follow_mouse()
+        # add text
+        text = self.font.render(self.text + str(self.value), True, (20, 20, 20))
+        text_y = self.y - 10
+        text_x = self.x + self.width // 2 - text.get_width() // 2
+        self.screen.blit(text, (text_x, text_y))
+        # add the slider part
+        line_start = (self.x + (self.line_width - self.width) // 2, self.y + text.get_height())
+        line_end = (self.x + self.width - (self.line_width - self.width) // 2, self.y + text.get_height())
+        pygame.draw.line(self.screen, WHITE, line_start, line_end, self.line_height)
+        # add the circle indicator
+        circle_x = self.x + (self.value - self.min) * self.increment_size
+        circle_y = self.y + text.get_height()
+        pygame.draw.circle(self.screen, BLUE, (circle_x, circle_y), 15)
+
+    def mouse_down(self, mouse_pos):
+        if pygame.Rect.collidepoint(self.get_rect(), mouse_pos):
+            self.following_mouse = True
+
+    def mouse_up(self, mouse_pos):
+        self.following_mouse = False
+        self.callback(self.value)
+
+    def get_rect(self):
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def follow_mouse(self):
+        if self.following_mouse and pygame.Rect.collidepoint(self.get_rect(), pygame.mouse.get_pos()):
+            mouse_x = pygame.mouse.get_pos()[0]
+            self.value = int((mouse_x - self.x) // self.increment_size + self.min)
+        elif self.following_mouse:
+            mouse_x = pygame.mouse.get_pos()[0]
+            if mouse_x < self.x:
+                self.value = self.min
+            elif mouse_x > self.x + self.width:
+                self.value = self.max
+
+
 class Button:
     def __init__(self, screen, image, pos, size, text, callback):
         self.screen = screen
@@ -595,7 +656,9 @@ class Button:
         self.size = self.width, self.height = size
         self.text = text
         self.callback = callback
-        self.draw()
+
+    def mouse_up(self, mouse_pos):
+        pass
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
@@ -633,15 +696,19 @@ class Menu:
 
     def add_button(self, text, callback):
         num_widgets = len(self.widgets)
-        button_size = 200, 60
-        button_file = os.path.join("img", "button" + str(num_widgets % 6 + 1) + ".png")
-        pos = 170, 100 * num_widgets + 170
+        button_size = 300, 60
+        button_file = os.path.join("img", "widget" + str(num_widgets % 5 + 1) + ".png")
+        pos = 130, 100 * num_widgets + 170
         button = Button(self.screen, button_file, pos, button_size, text, callback)
         self.widgets.append(button)
-        pass
 
-    def add_slider(self):
-        pass
+    def add_slider(self, text, callback, minimum, maximum):
+        num_widgets = len(self.widgets)
+        slider_size = 200, 50
+        slider_background = os.path.join("img", "widget" + str(num_widgets % 5 + 1) + ".png")
+        pos = 130, 100 * num_widgets + 170
+        slider = Slider(self.screen, slider_background, pos, slider_size, minimum, maximum, text, callback)
+        self.widgets.append(slider)
 
     def add_dropdown(self):
         pass
@@ -656,6 +723,10 @@ class Menu:
     def mouse_down(self, mouse_pos):
         for widget in self.widgets:
             widget.mouse_down(mouse_pos)
+
+    def mouse_up(self, mouse_pos):
+        for widget in self.widgets:
+            widget.mouse_up(mouse_pos)
 
 
 class GameState:
@@ -679,8 +750,12 @@ class GameState:
                        "Settings": lambda: self.set_active_menu(self.settings_menu),
                        "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
                        }
+        slider_info = {"Difficulty: ": (lambda x: stockfish.set_skill_level(x), 2, 25),
+                       }
         for name, callback in button_info.items():
             menu.add_button(name, callback)
+        for name, (callback, minimum, maximum) in slider_info.items():
+            menu.add_slider(name, callback, minimum, maximum)
         menu.add_title("Chess")
 
     def add_settings_menu_widgets(self):
@@ -718,7 +793,7 @@ class GameState:
 
                 # mouse release/up
                 elif event.type == pygame.MOUSEBUTTONUP:
-                    pass
+                    self.active_menu.mouse_up(event.pos)
 
                 # mouse move
                 elif event.type == pygame.MOUSEMOTION:
