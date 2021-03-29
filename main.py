@@ -577,7 +577,7 @@ def normal_game(screen, computer=False):
 
         # after we updated the graphic let computer go
         if computer and board.turn == "black":  # playing against computer
-            move = stockfish.get_best_move_time(200)
+            move = stockfish.get_best_move_time(stockfish.think_time)
             move_from, move_to = stockfish.get_coordinate_notation(move)
             board.move_piece_at_to(move_from, move_to)
 
@@ -592,8 +592,8 @@ class Slider:
     def __init__(self, screen, background_image, pos, size, minimum, maximum, text, callback):
         self.screen = screen
         self.pos = self.x, self.y = pos
-        self.font = pygame.font.SysFont("loma", 48, True)
-        self.size = self.width, self.height = 300, 60  # hier hier hier hier ist size
+        self.size = self.width, self.height = size  # hier hier hier hier ist size
+        self.font = pygame.font.SysFont("loma", min(self.height - len(text) * 2, 48), True)
         self.background_image = pygame.transform.scale(pygame.image.load(background_image), self.size)
         self.text = text
         self.callback = callback
@@ -601,13 +601,13 @@ class Slider:
         self.min = minimum
         self.value = minimum
         self.following_mouse = False
-        self.num_increments = self.max - self.min + 1  # plus one because max and min included
-        self.increment_size = self.width / self.num_increments
+        self.num_increments = self.max - self.min
         self.line_size = self.line_width, self.line_height = self.width - 40, 5
+        self.increment_size = self.line_width / self.num_increments
 
     def draw(self):
         # background
-        self.screen.blit(self.background_image, self.get_rect())
+        self.screen.blit(self.background_image, self.get_text_rect())
         # always want to be following mouse if supposed to
         self.follow_mouse()
         # add text
@@ -616,34 +616,38 @@ class Slider:
         text_x = self.x + self.width // 2 - text.get_width() // 2
         self.screen.blit(text, (text_x, text_y))
         # add the slider part
-        line_start = (self.x + (self.line_width - self.width) // 2, self.y + text.get_height())
-        line_end = (self.x + self.width - (self.line_width - self.width) // 2, self.y + text.get_height())
+        line_start = (self.x + (self.width - self.line_width) // 2, self.y + self.height // 1.4)
+        line_end = (self.x + self.width - (self.width - self.line_width) // 2, self.y + self.height // 1.4)
         pygame.draw.line(self.screen, WHITE, line_start, line_end, self.line_height)
         # add the circle indicator
-        circle_x = self.x + (self.value - self.min) * self.increment_size
-        circle_y = self.y + text.get_height()
+        circle_x = line_start[0] + (self.value - self.min) * self.increment_size
+        circle_y = line_start[1]
         pygame.draw.circle(self.screen, BLUE, (circle_x, circle_y), 15)
 
     def mouse_down(self, mouse_pos):
-        if pygame.Rect.collidepoint(self.get_rect(), mouse_pos):
+        if pygame.Rect.collidepoint(self.get_collision_rect(), mouse_pos):
             self.following_mouse = True
 
     def mouse_up(self, mouse_pos):
         self.following_mouse = False
         self.callback(self.value)
 
-    def get_rect(self):
+    def get_text_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
+    def get_collision_rect(self):
+        return pygame.Rect(self.x, self.y + self.font.get_height() // 2, self.width, self.height)
+
     def follow_mouse(self):
-        if self.following_mouse and pygame.Rect.collidepoint(self.get_rect(), pygame.mouse.get_pos()):
+        if self.following_mouse and pygame.Rect.collidepoint(self.get_collision_rect(), pygame.mouse.get_pos()):
             mouse_x = pygame.mouse.get_pos()[0]
-            self.value = int((mouse_x - self.x) // self.increment_size + self.min)
+            mouse_value = int((mouse_x - self.x) // self.increment_size + self.min)
+            self.value = mouse_value if self.min <= mouse_value <= self.max else self.value
         elif self.following_mouse:
             mouse_x = pygame.mouse.get_pos()[0]
-            if mouse_x < self.x:
+            if mouse_x < self.get_collision_rect().left:
                 self.value = self.min
-            elif mouse_x > self.x + self.width:
+            elif mouse_x > self.get_collision_rect().right:
                 self.value = self.max
 
 
@@ -652,8 +656,8 @@ class Button:
         self.screen = screen
         self.image = pygame.transform.scale(pygame.image.load(image), size)
         self.pos = self.x, self.y = pos
-        self.font = pygame.font.SysFont("loma", 48, True)
         self.size = self.width, self.height = size
+        self.font = pygame.font.SysFont("loma", min(self.height - len(text) * 2, 48), True)
         self.text = text
         self.callback = callback
 
@@ -704,7 +708,7 @@ class Menu:
 
     def add_slider(self, text, callback, minimum, maximum):
         num_widgets = len(self.widgets)
-        slider_size = 200, 50
+        slider_size = 300, 60
         slider_background = os.path.join("img", "widget" + str(num_widgets % 5 + 1) + ".png")
         pos = 130, 100 * num_widgets + 170
         slider = Slider(self.screen, slider_background, pos, slider_size, minimum, maximum, text, callback)
@@ -750,12 +754,8 @@ class GameState:
                        "Settings": lambda: self.set_active_menu(self.settings_menu),
                        "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
                        }
-        slider_info = {"Difficulty: ": (lambda x: stockfish.set_skill_level(x), 2, 25),
-                       }
         for name, callback in button_info.items():
             menu.add_button(name, callback)
-        for name, (callback, minimum, maximum) in slider_info.items():
-            menu.add_slider(name, callback, minimum, maximum)
         menu.add_title("Chess")
 
     def add_settings_menu_widgets(self):
@@ -763,8 +763,13 @@ class GameState:
         button_info = {"Back": lambda: self.set_active_menu(self.main_menu),
                        "Quit": lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
                        }
+        slider_info = {"Difficulty: ": (lambda x: stockfish.set_skill_level(x), 1, 25),
+                       "Computer Time: ": (lambda x: stockfish.set_computer_think_time(x), 50, 2000),
+                       }
         for name, callback in button_info.items():
             menu.add_button(name, callback)
+        for name, (callback, minimum, maximum) in slider_info.items():
+            menu.add_slider(name, callback, minimum, maximum)
         menu.add_title("Settings")
 
     def set_active_menu(self, menu):

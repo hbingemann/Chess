@@ -4,7 +4,18 @@ import os
 
 class StockfishWrapper(Stockfish):
     def __init__(self, location=os.path.join("Stockfish/src", "stockfish")):
+        self.think_time = 200
         super().__init__(location)
+
+    def set_computer_think_time(self, time: int):
+        """
+
+        :param time:
+            an integer in milliseconds of time that the computer will think for
+        :return:
+            nothing
+        """
+        self.think_time = time
 
     def get_algebraic_notation(self, piece, move_from: tuple, move_to: tuple) -> str:
         """
