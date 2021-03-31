@@ -3,3 +3,7 @@ Stockfish/
 venv/lib/.DS_Store
 venv/lib/*/.DS_Store
 venv/lib/*/*/.DS_Store
+.idea/Chess.iml
+.idea/misc.xml
+__pychache__/*
+
