@@ -1,5 +1,5 @@
 # Chess
 
-Super-Dooper Schach Spiel. Mit coolen Moves, tollen Animationen, Action-packed.
+Chess implemented with stockfish and pygame as the gui
 
-Get ready, set, go...
+run main.py to open the application
